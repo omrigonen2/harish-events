@@ -55,7 +55,7 @@
         <div class="event-description small mb-0"><%- descriptionHtml %></div>
       <% } %>
       <% if (event.date) { %>
-        <p class="small text-center mb-2 mt-0 py-0 event-date-line">מועד: <%= new Date(event.date).toLocaleString('he-IL') %></p>
+        <p class="small text-center mb-2 mt-0 py-0 event-date-line">מועד: <%= formatDateTimeIsrael(event.date) %></p>
       <% } %>
 
       <% var sa = typeof signupAvailability !== 'undefined' && signupAvailability ? signupAvailability : { open: true }; %>

@@ -35,7 +35,7 @@
           <% registrations.forEach(function(r, i) { %>
             <tr>
               <td><%= i + 1 %></td>
-              <td class="text-nowrap"><%= r.createdAt ? new Date(r.createdAt).toLocaleString('he-IL') : '' %></td>
+              <td class="text-nowrap"><%= r.createdAt ? formatDateTimeIsrael(r.createdAt) : '' %></td>
               <td><%= r.parentFirstName %> <%= r.parentLastName %></td>
               <td class="text-nowrap"><%= r.phone %></td>
               <td class="text-center"><%= (r.children || []).length %></td>

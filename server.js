@@ -9,6 +9,7 @@ const multer = require('multer');
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const adminAccountRoutes = require('./routes/admin-accounts');
+const { formatDateTimeIsrael } = require('./lib/datetimeLocal');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,6 +18,7 @@ const isProd = process.env.NODE_ENV === 'production';
 app.set('trust proxy', 1);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+app.locals.formatDateTimeIsrael = formatDateTimeIsrael;
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
