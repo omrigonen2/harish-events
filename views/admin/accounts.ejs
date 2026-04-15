@@ -1,0 +1,53 @@
+<%- include('../partials/header', { title: title }) %>
+<%- include('partials/admin-navbar', { sessionUser: locals.sessionUser || {}, memberships: locals.memberships || [] }) %>
+<main class="container pb-5">
+  <% if (formError) { %>
+    <div class="alert alert-danger"><%= formError %></div>
+  <% } %>
+
+  <div class="row g-4">
+    <div class="col-lg-4">
+      <div class="card admin-card p-4 mb-4">
+        <h2 class="h5 mb-3">חשבון חדש</h2>
+        <form method="post" action="/admin/accounts/create">
+          <div class="mb-3">
+            <label class="form-label">שם החשבון *</label>
+            <input class="form-control" name="name" required>
+          </div>
+          <button type="submit" class="btn btn-primary">יצירת חשבון</button>
+        </form>
+      </div>
+    </div>
+    <div class="col-lg-8">
+      <h2 class="h5 mb-3">כל החשבונות</h2>
+      <div class="table-responsive">
+        <table class="table table-bordered bg-white">
+          <thead class="table-light">
+            <tr>
+              <th>שם</th>
+              <th>Slug</th>
+              <th>משתמשים</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% accounts.forEach(function(acct) { %>
+              <tr>
+                <td><%= acct.name %></td>
+                <td><code><%= acct.slug %></code></td>
+                <td><%= memberCountMap[String(acct._id)] || 0 %></td>
+                <td>
+                  <a href="/admin/accounts/<%= acct._id %>/users" class="btn btn-sm btn-outline-primary">משתמשים</a>
+                </td>
+              </tr>
+            <% }); %>
+            <% if (!accounts.length) { %>
+              <tr><td colspan="4" class="text-center text-muted">אין חשבונות</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+<%- include('../partials/footer') %>

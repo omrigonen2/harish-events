@@ -1,0 +1,22 @@
+<%- include('../partials/header', { title: title, bodyClass: 'bg-light' }) %>
+<main class="container py-5" style="max-width: 28rem;">
+  <h1 class="h4 mb-4 text-center">בחירת חשבון</h1>
+  <p class="text-muted text-center mb-4">יש לך גישה לכמה חשבונות. בחרו לאיזה חשבון להיכנס:</p>
+  <div class="list-group">
+    <% memberships.forEach(function(m) { %>
+      <form method="post" action="/admin/set-active-account" class="d-inline">
+        <input type="hidden" name="accountId" value="<%= m.accountId._id %>">
+        <button type="submit" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+          <span><%= m.accountId.name %></span>
+          <span class="badge bg-primary rounded-pill">&larr;</span>
+        </button>
+      </form>
+    <% }); %>
+  </div>
+  <div class="text-center mt-4">
+    <form action="/admin/logout" method="post" class="d-inline">
+      <button type="submit" class="btn btn-outline-secondary btn-sm">יציאה</button>
+    </form>
+  </div>
+</main>
+<%- include('../partials/footer') %>

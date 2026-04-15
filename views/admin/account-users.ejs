@@ -1,0 +1,68 @@
+<%- include('../partials/header', { title: title }) %>
+<%- include('partials/admin-navbar', { sessionUser: locals.sessionUser || {}, memberships: locals.membershipsList || [] }) %>
+<main class="container pb-5">
+  <h1 class="h4 mb-4">משתמשים בחשבון: <%= account.name %></h1>
+
+  <% if (formError) { %>
+    <div class="alert alert-danger"><%= formError %></div>
+  <% } %>
+
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="card admin-card p-4 mb-4">
+        <h2 class="h5 mb-3">הוספת משתמש</h2>
+        <p class="small text-muted">אם האימייל כבר קיים במערכת, המשתמש ישויך לחשבון. אחרת יווצר משתמש חדש.</p>
+        <form method="post" action="/admin/accounts/<%= account._id %>/users">
+          <div class="mb-3">
+            <label class="form-label">אימייל *</label>
+            <input class="form-control" type="email" name="email" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">סיסמה (חובה למשתמש חדש)</label>
+            <input class="form-control" type="password" name="password" autocomplete="new-password">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">שם תצוגה</label>
+            <input class="form-control" name="displayName">
+          </div>
+          <button type="submit" class="btn btn-primary">הוספה</button>
+        </form>
+      </div>
+    </div>
+    <div class="col-lg-7">
+      <h2 class="h5 mb-3">משתמשים קיימים</h2>
+      <div class="table-responsive">
+        <table class="table table-bordered bg-white">
+          <thead class="table-light">
+            <tr>
+              <th>אימייל</th>
+              <th>שם</th>
+              <th>תפקיד</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% memberships.forEach(function(m) { %>
+              <tr>
+                <td><%= m.userId.email %></td>
+                <td><%= m.userId.displayName %></td>
+                <td><%= m.userId.role === 'superadmin' ? 'מנהל על' : 'משתמש' %></td>
+                <td>
+                  <form method="post" action="/admin/accounts/<%= account._id %>/users/<%= m.userId._id %>/remove"
+                        class="d-inline" onsubmit="return confirm('להסיר משתמש זה מהחשבון?');">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">הסרה</button>
+                  </form>
+                </td>
+              </tr>
+            <% }); %>
+            <% if (!memberships.length) { %>
+              <tr><td colspan="4" class="text-center text-muted">אין משתמשים</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+      <a href="/admin/accounts" class="btn btn-outline-secondary mt-3">חזרה לרשימת החשבונות</a>
+    </div>
+  </div>
+</main>
+<%- include('../partials/footer') %>

@@ -1,0 +1,120 @@
+/* Base tweaks */
+body {
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.home-page main.home-hero {
+  min-height: 75vh;
+  background: radial-gradient(ellipse 120% 80% at 50% 20%, rgba(99, 102, 241, 0.35) 0%, transparent 55%),
+    linear-gradient(165deg, #0f172a 0%, #1e293b 45%, #0f172a 100%);
+  color: #f8fafc;
+}
+
+.home-hero-inner {
+  max-width: 40rem;
+}
+
+.home-hero-badge {
+  display: inline-block;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #a5b4fc;
+  border: 1px solid rgba(165, 180, 252, 0.4);
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+}
+
+.home-hero-title {
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+}
+
+.home-hero-line {
+  height: 3px;
+  width: 4rem;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #818cf8, transparent);
+}
+
+/* Rich text from TinyMCE (public event description) */
+.event-description {
+  text-align: right;
+  line-height: 1.55;
+}
+.event-description p:last-child {
+  margin-bottom: 0;
+}
+/* צמוד יותר לשורת המועד בטופס הציבורי */
+.public-form-page .event-description p {
+  margin-bottom: 0.35rem;
+}
+.public-form-page .event-description > *:last-child {
+  margin-bottom: 0 !important;
+}
+.public-form-page .event-date-line {
+  line-height: 1.3;
+}
+.event-description a {
+  color: var(--cf-primary, #0d6efd);
+}
+.event-description img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+}
+.event-description ul,
+.event-description ol {
+  padding-right: 1.25rem;
+  text-align: right;
+}
+.event-description table {
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.public-form-page .container {
+  position: relative;
+  z-index: 1;
+}
+
+/* TinyMCE popovers above admin navbar */
+.tox-tinymce-aux {
+  z-index: 10050 !important;
+}
+
+/* Admin */
+.admin-navbar {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+.admin-card {
+  border: none;
+  box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.08);
+}
+.table-registrations {
+  font-size: 0.9rem;
+}
+.field-builder-item {
+  cursor: grab;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: #fff;
+}
+.field-builder-item.dragging {
+  opacity: 0.6;
+}
+.preview-box {
+  border: 2px dashed #ced4da;
+  border-radius: 0.5rem;
+  min-height: 120px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.event-public-link {
+  font-size: 0.8rem;
+  max-width: 14rem;
+  word-break: break-all;
+}

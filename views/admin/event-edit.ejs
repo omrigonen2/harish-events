@@ -1,0 +1,92 @@
+<%- include('../partials/header', { title: title }) %>
+<%- include('partials/admin-navbar', { sessionUser: locals.sessionUser || {}, memberships: locals.memberships || [] }) %>
+<div class="container-fluid px-3 px-md-4 mb-3">
+  <div class="d-flex gap-2 flex-wrap">
+    <% var previewReg = '/register/' + encodeURIComponent(editEvent.slug || ''); %>
+    <a class="btn btn-outline-primary btn-sm" href="<%= previewReg %>" target="_blank" rel="noopener">תצוגה מקדימה</a>
+    <a class="btn btn-outline-success btn-sm" href="/admin/events/<%= editEvent._id %>/registrations">נרשמים</a>
+  </div>
+</div>
+<main class="container pb-5">
+  <% if (formError) { %>
+    <div class="alert alert-danger"><%= formError %></div>
+  <% } %>
+
+  <div class="row justify-content-center">
+    <div class="col-xl-10">
+      <h1 class="h4 mb-4">עריכת אירוע: <%= editEvent.name %></h1>
+
+      <div class="card admin-card p-4 mb-4">
+        <h2 class="h5 mb-3">פרטי האירוע</h2>
+        <form method="post" action="/admin/events/<%= editEvent._id %>/update">
+          <div class="mb-3">
+            <label class="form-label">שם האירוע *</label>
+            <input class="form-control" name="name" required value="<%= editEvent.name %>">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="eventDescription">תיאור האירוע</label>
+            <p class="small text-muted mb-2">עורך טקסט עשיר (TinyMCE) — עיצוב, קישורים וטבלאות.</p>
+            <textarea id="eventDescription" name="description" class="form-control" rows="10"><%- (locals.editDescriptionHtml != null ? locals.editDescriptionHtml : '') %></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">מועד</label>
+            <input class="form-control" type="datetime-local" name="date"
+              value="<%= typeof eventDateInput !== 'undefined' ? eventDateInput : '' %>">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">כתובת קבועה (slug)</label>
+            <input class="form-control" name="slug" value="<%= editEvent.slug %>">
+            <p class="small text-muted mb-0">כתובת הציבור לטופס: <code class="user-select-all"><%= typeof baseUrl !== 'undefined' ? baseUrl : '' %>/register/<%= encodeURIComponent(editEvent.slug || '') %></code></p>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="isActive" id="isActive" <%= editEvent.isActive ? 'checked' : '' %>>
+            <label class="form-check-label" for="isActive">אירוע פעיל (מוצג לציבור)</label>
+          </div>
+
+          <hr class="my-4">
+          <h3 class="h6">הרשמה</h3>
+          <div class="mb-3">
+            <label class="form-label">מגבלת הרשמות</label>
+            <input class="form-control" type="number" name="signupLimit" min="0" step="1" placeholder="ריק = ללא הגבלה"
+              value="<%= editEvent.signupLimit != null && editEvent.signupLimit !== '' ? editEvent.signupLimit : '' %>">
+            <p class="small text-muted mb-0">השאירו ריק כדי לאפשר הרשמות בלי מכסה.</p>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">ספירה למכסה</label>
+            <select class="form-select" name="signupLimitCountMode">
+              <option value="families" <%= (editEvent.signupLimitCountMode || 'families') === 'families' ? 'selected' : '' %>>משפחות (הרשמה אחת לכל טופס)</option>
+              <option value="participants" <%= editEvent.signupLimitCountMode === 'participants' ? 'selected' : '' %>>משתתפים (מבוגר אחד + כל ילד נספר)</option>
+              <option value="children" <%= editEvent.signupLimitCountMode === 'children' ? 'selected' : '' %>>ילדים בלבד (ספירת כל ילד בטפסים)</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">סגירת הרשמות</label>
+            <input class="form-control" type="datetime-local" name="signupCloseAt"
+              value="<%= typeof signupCloseAtInput !== 'undefined' ? signupCloseAtInput : '' %>">
+            <p class="small text-muted mb-0">ריק = ההרשמה לא נסגרת לפי זמן (רק לפי מכסה / כיבוי אירוע).</p>
+          </div>
+
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="submit" class="btn btn-primary">שמירה</button>
+            <a href="/admin/events" class="btn btn-outline-secondary">חזרה לרשימת האירועים</a>
+          </div>
+        </form>
+      </div>
+
+      <% if (builderConfig) { %>
+        <%- include('partials/form-builder-section', {
+          event: editEvent,
+          config: builderConfig,
+          configRaw: builderConfigRaw,
+          formBuilderError: typeof formBuilderError !== 'undefined' ? formBuilderError : null
+        }) %>
+        <p class="mb-4">
+          <a href="/admin/events" class="btn btn-outline-secondary">חזרה לרשימת האירועים</a>
+        </p>
+      <% } %>
+    </div>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/tinymce@7/tinymce.min.js" crossorigin="anonymous"></script>
+<script src="/js/tinymce-event.js"></script>
+<%- include('../partials/footer') %>

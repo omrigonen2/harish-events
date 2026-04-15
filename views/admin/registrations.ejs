@@ -1,0 +1,63 @@
+<%- include('../partials/header', { title: title }) %>
+<%- include('partials/admin-navbar', { sessionUser: locals.sessionUser || {}, memberships: locals.memberships || [] }) %>
+<div class="container-fluid px-3 px-md-4 mb-3">
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-outline-primary btn-sm" href="/admin/events/<%= event._id %>/edit">עריכה</a>
+    <a class="btn btn-outline-success btn-sm" href="/admin/events/<%= event._id %>/registrations/export.csv">ייצוא CSV</a>
+  </div>
+</div>
+<main class="container-fluid px-3 px-md-4 pb-5">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="h4 mb-0">נרשמים: <%= event.name %></h1>
+    <a class="btn btn-success btn-sm" href="/admin/events/<%= event._id %>/registrations/export.csv">הורדת Excel / CSV</a>
+  </div>
+
+  <% if (!registrations.length) { %>
+    <p class="text-muted">אין הרשמות עדיין.</p>
+  <% } else { %>
+    <div class="table-responsive">
+      <table class="table table-striped table-bordered table-registrations align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th>#</th>
+            <th>תאריך</th>
+            <th>הורה</th>
+            <th>טלפון</th>
+            <th class="text-center">מספר ילדים</th>
+            <th>ילדים</th>
+            <% customFieldDefs.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); }).forEach(function(f) { %>
+              <th><%= f.label %></th>
+            <% }); %>
+          </tr>
+        </thead>
+        <tbody>
+          <% registrations.forEach(function(r, i) { %>
+            <tr>
+              <td><%= i + 1 %></td>
+              <td class="text-nowrap"><%= r.createdAt ? new Date(r.createdAt).toLocaleString('he-IL') : '' %></td>
+              <td><%= r.parentFirstName %> <%= r.parentLastName %></td>
+              <td class="text-nowrap"><%= r.phone %></td>
+              <td class="text-center"><%= (r.children || []).length %></td>
+              <td>
+                <% (r.children || []).forEach(function(c, j) { %>
+                  <%= c.name %> (<%= c.age %>)<% if (j < r.children.length - 1) { %>, <% } %>
+                <% }); %>
+              </td>
+              <% customFieldDefs.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); }).forEach(function(f) { %>
+                <td>
+                  <% var v = r.customFields && r.customFields[f.id]; %>
+                  <% if (typeof v === 'boolean') { %>
+                    <%= v ? 'כן' : 'לא' %>
+                  <% } else if (v !== undefined && v !== null) { %>
+                    <%= v %>
+                  <% } %>
+                </td>
+              <% }); %>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</main>
+<%- include('../partials/footer') %>

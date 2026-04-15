@@ -1,0 +1,38 @@
+<%- include('../partials/header', { title: title }) %>
+<%- include('partials/admin-navbar', { sessionUser: locals.sessionUser || {}, memberships: locals.memberships || [] }) %>
+<main class="container pb-5">
+  <h2 class="h4 mb-3">סקירה</h2>
+  <p class="text-muted">רשימת האירועים ומספר הנרשמים לכל אירוע.</p>
+  <div class="table-responsive">
+    <table class="table table-striped admin-card rounded overflow-hidden">
+      <thead class="table-dark">
+        <tr>
+          <th>שם אירוע</th>
+          <% if (locals.sessionUser && locals.sessionUser.role === 'superadmin') { %><th>חשבון</th><% } %>
+          <th>סטטוס</th>
+          <th>נרשמים</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% events.forEach(function(ev) { %>
+          <tr>
+            <td><%= ev.name %></td>
+            <% if (locals.sessionUser && locals.sessionUser.role === 'superadmin') { %><td><%= ev.accountId && ev.accountId.name ? ev.accountId.name : '' %></td><% } %>
+            <td><%= ev.isActive ? 'פעיל' : 'לא פעיל' %></td>
+            <td><%= countMap[String(ev._id)] || 0 %></td>
+            <td class="text-nowrap">
+              <a href="/register/<%= encodeURIComponent(ev.slug || '') %>" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">טופס</a>
+              <a href="/admin/events/<%= ev._id %>/edit" class="btn btn-sm btn-outline-secondary">עריכה</a>
+              <a href="/admin/events/<%= ev._id %>/registrations" class="btn btn-sm btn-outline-success">נרשמים</a>
+            </td>
+          </tr>
+        <% }); %>
+        <% if (!events.length) { %>
+          <tr><td colspan="<%= locals.sessionUser && locals.sessionUser.role === 'superadmin' ? 5 : 4 %>" class="text-center text-muted">אין אירועים. <a href="/admin/events">צרו אירוע</a></td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</main>
+<%- include('../partials/footer') %>

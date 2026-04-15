@@ -1,0 +1,466 @@
+<%
+  var cols = config.colors || {};
+  var cf = config.fields || [];
+  var rawCfg = typeof configRaw !== 'undefined' ? configRaw : config;
+%>
+<style>
+.image-drop-zone {
+  border: 2px dashed #adb5bd;
+  border-radius: 0.5rem;
+  background: #f8f9fa;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+}
+.image-drop-zone.drag-over {
+  border-color: #0d6efd;
+  background: #e8f0fe;
+}
+.image-drop-zone .preview-img {
+  max-height: 120px;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: 0.375rem;
+  display: block;
+  margin: 0 auto 0.5rem;
+}
+.image-drop-zone .placeholder-text {
+  color: #6c757d;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+.image-drop-zone .uploading-overlay {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.8);
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 0.5rem;
+  font-size: 0.9rem; color: #0d6efd;
+}
+</style>
+<div id="form-design" class="card admin-card p-4 mb-4">
+  <h2 class="h5 mb-3">עיצוב טופס</h2>
+  <% if (typeof formBuilderError !== 'undefined' && formBuilderError) { %>
+    <div class="alert alert-danger"><%= formBuilderError %></div>
+  <% } %>
+
+  <form id="form-builder-form" method="post" action="/admin/events/<%= event._id %>/form-builder" class="row g-4">
+    <input type="hidden" name="fieldsJson" id="fieldsJson" value="">
+    <input type="hidden" name="logoKey" id="logoKey" value="<%= rawCfg.logoUrl || '' %>">
+    <input type="hidden" name="backgroundImageKey" id="backgroundImageKey" value="<%= rawCfg.backgroundImage || '' %>">
+    <input type="hidden" name="clearLogo" id="clearLogo" value="false">
+    <input type="hidden" name="clearBackground" id="clearBackground" value="false">
+
+    <div class="col-lg-7">
+
+      <div class="card border-0 bg-light p-4 mb-4">
+        <h3 class="h6">צבעים</h3>
+        <div class="row g-2">
+          <div class="col-6 col-md-3">
+            <label class="form-label small">ראשי</label>
+            <input type="color" class="form-control form-control-color w-100" name="colorPrimary" id="colorPrimary" value="<%= cols.primary || '#0d6efd' %>">
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small">רקע</label>
+            <input type="color" class="form-control form-control-color w-100" name="colorBackground" id="colorBackground" value="<%= cols.background || '#f8f9fa' %>">
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small">טקסט</label>
+            <input type="color" class="form-control form-control-color w-100" name="colorText" id="colorText" value="<%= cols.text || '#212529' %>">
+          </div>
+          <div class="col-6 col-md-3">
+            <label class="form-label small">כפתור</label>
+            <input type="color" class="form-control form-control-color w-100" name="colorButton" id="colorButton" value="<%= cols.button || '#0d6efd' %>">
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 bg-light p-4 mb-4">
+        <h3 class="h6 mb-3">תמונות</h3>
+
+        <div class="mb-4">
+          <label class="form-label">לוגו</label>
+          <div class="image-drop-zone" id="logoDropZone" tabindex="0" role="button" aria-label="העלאת לוגו">
+            <% if (config.logoUrl) { %>
+              <img src="<%- config.logoUrl %>" alt="" class="preview-img" id="logoPreview">
+            <% } else { %>
+              <img alt="" class="preview-img" id="logoPreview" style="display:none">
+            <% } %>
+            <div class="placeholder-text" id="logoPlaceholder" style="<%= config.logoUrl ? 'display:none' : '' %>">
+              <div style="font-size:2rem;">🖼️</div>
+              <div>גרור תמונה לכאן, הדבק (Ctrl+V) או לחץ לבחירת קובץ</div>
+            </div>
+          </div>
+          <div class="mt-2 d-flex gap-2 align-items-center">
+            <button type="button" class="btn btn-sm btn-outline-danger" id="clearLogoBtn" style="<%= config.logoUrl ? '' : 'display:none' %>">מחק לוגו</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label">תמונת רקע</label>
+          <div class="image-drop-zone" id="bgDropZone" tabindex="0" role="button" aria-label="העלאת תמונת רקע">
+            <% if (config.backgroundImage) { %>
+              <img src="<%- config.backgroundImage %>" alt="" class="preview-img" id="bgPreview">
+            <% } else { %>
+              <img alt="" class="preview-img" id="bgPreview" style="display:none">
+            <% } %>
+            <div class="placeholder-text" id="bgPlaceholder" style="<%= config.backgroundImage ? 'display:none' : '' %>">
+              <div style="font-size:2rem;">🖼️</div>
+              <div>גרור תמונה לכאן, הדבק (Ctrl+V) או לחץ לבחירת קובץ</div>
+            </div>
+          </div>
+          <div class="mt-2 d-flex gap-2 align-items-center">
+            <button type="button" class="btn btn-sm btn-outline-danger" id="clearBgBtn" style="<%= config.backgroundImage ? '' : 'display:none' %>">מחק רקע</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 bg-light p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="h6 mb-0">שדות הטופס</h3>
+          <button type="button" class="btn btn-sm btn-primary" id="addFieldBtn">+ שדה</button>
+        </div>
+        <p class="small text-muted">ניתן לסדר מחדש, לשנות תוויות וחובה. שדות מסומנים &quot;מערכת&quot; נשמרים בטופס (לא ניתן למחוק).</p>
+        <div id="fieldList"></div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg">שמירת עיצוב</button>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="sticky-top pt-2" style="top: 1rem;">
+        <h3 class="h6">תצוגה מקדימה</h3>
+        <div id="previewBox" class="preview-box p-4 mb-2">
+          <p class="small mb-2 fw-bold">כותרת לדוגמה</p>
+          <p class="small mb-0">טקסט לדוגמה להמחשת צבעים.</p>
+          <button type="button" class="btn btn-sm mt-3 text-white border-0">כפתור</button>
+        </div>
+        <p class="small text-muted">התצוגה מתעדכנת בזמן אמת בעת שינוי הצבעים.</p>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  var cp = document.getElementById('colorPrimary');
+  var cb = document.getElementById('colorBackground');
+  var ct = document.getElementById('colorText');
+  var cbtn = document.getElementById('colorButton');
+  var preview = document.getElementById('previewBox');
+
+  function syncPreview() {
+    var bg = cb.value, tx = ct.value, btn = cbtn.value;
+    preview.style.backgroundColor = bg;
+    preview.style.color = tx;
+    var b = preview.querySelector('button');
+    if (b) b.style.background = btn;
+    preview.querySelectorAll('p').forEach(function (p) { p.style.color = tx; });
+  }
+  [cp, cb, ct, cbtn].forEach(function (el) { if (el) el.addEventListener('input', syncPreview); });
+  syncPreview();
+
+  var SYSTEM_TYPES = ['parent_first', 'parent_last', 'phone', 'children'];
+  function isSystemType(t) { return SYSTEM_TYPES.indexOf(t) >= 0; }
+
+  var initial = <%- JSON.stringify((cf || []).map(function(f, i) {
+    return {
+      id: f.id,
+      type: f.type || 'text',
+      label: f.label || '',
+      required: !!f.required,
+      order: typeof f.order === 'number' ? f.order : i,
+      options: f.options || [],
+      childNameLabel: f.childNameLabel || 'שם הילד/ה',
+      childAgeLabel: f.childAgeLabel || 'גיל'
+    };
+  })) %>;
+
+  var fieldList = document.getElementById('fieldList');
+  var hiddenJson = document.getElementById('fieldsJson');
+  var form = document.getElementById('form-builder-form');
+
+  function uid() { return 'f_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
+
+  function typeSelectHtml() {
+    return '<select class="form-select form-select-sm fld-type" style="max-width:11rem">' +
+      '<optgroup label="שדות בסיס">' +
+      '<option value="parent_first">שם פרטי הורה</option>' +
+      '<option value="parent_last">שם משפחה הורה</option>' +
+      '<option value="phone">טלפון נייד</option>' +
+      '<option value="children">ילדים (רשימה)</option>' +
+      '</optgroup>' +
+      '<optgroup label="שדות נוספים">' +
+      '<option value="text">טקסט</option>' +
+      '<option value="textarea">פסקה</option>' +
+      '<option value="select">רשימה נפתחת</option>' +
+      '<option value="checkbox">תיבת סימון</option>' +
+      '</optgroup></select>';
+  }
+
+  function getFields() {
+    return Array.from(fieldList.querySelectorAll('.field-builder-item')).map(function (row, idx) {
+      var type = row.querySelector('.fld-type').value;
+      var options = type === 'select'
+        ? row.querySelector('.fld-options').value.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean)
+        : [];
+      var out = {
+        id: row.getAttribute('data-id') || uid(),
+        type: type,
+        label: row.querySelector('.fld-label').value.trim(),
+        required: row.querySelector('.fld-required').checked,
+        order: idx,
+        options: options,
+      };
+      if (type === 'children') {
+        var cn = row.querySelector('.fld-child-name');
+        var ca = row.querySelector('.fld-child-age');
+        out.childNameLabel = cn ? cn.value.trim() || 'שם הילד/ה' : 'שם הילד/ה';
+        out.childAgeLabel = ca ? ca.value.trim() || 'גיל' : 'גיל';
+      }
+      return out;
+    });
+  }
+
+  function syncRowVisibility(row) {
+    var t = row.querySelector('.fld-type').value;
+    var optWrap = row.querySelector('.fld-options-wrap');
+    var childWrap = row.querySelector('.fld-child-wrap');
+    if (optWrap) optWrap.style.display = t === 'select' ? 'block' : 'none';
+    if (childWrap) childWrap.style.display = t === 'children' ? 'block' : 'none';
+  }
+
+  function addFieldRow(data) {
+    data = data || { id: uid(), type: 'text', label: '', required: false, options: [] };
+    var sys = isSystemType(data.type);
+    var row = document.createElement('div');
+    row.className = 'field-builder-item';
+    row.setAttribute('data-id', data.id);
+    row.setAttribute('draggable', 'true');
+    var removeOrBadge = sys
+      ? '<span class="badge text-bg-secondary align-self-center">מערכת</span>'
+      : '<button type="button" class="btn btn-sm btn-outline-danger fld-remove">מחק</button>';
+    row.innerHTML =
+      '<div class="d-flex flex-wrap gap-2 align-items-start">' +
+        '<span class="text-muted user-select-none pe-1" title="גרור לסידור">⠿</span>' +
+        typeSelectHtml() +
+        '<input type="text" class="form-control form-control-sm fld-label" placeholder="תווית / כותרת" style="min-width:8rem;flex:1">' +
+        '<div class="form-check">' +
+          '<input class="form-check-input fld-required" type="checkbox" id="req_' + data.id + '">' +
+          '<label class="form-check-label small" for="req_' + data.id + '">חובה</label>' +
+        '</div>' +
+        removeOrBadge +
+      '</div>' +
+      '<div class="fld-child-wrap mt-2" style="display:none">' +
+        '<div class="row g-2">' +
+          '<div class="col-md-6"><label class="small text-muted">תווית שם ילד</label>' +
+          '<input type="text" class="form-control form-control-sm fld-child-name" placeholder="שם הילד/ה"></div>' +
+          '<div class="col-md-6"><label class="small text-muted">תווית גיל</label>' +
+          '<input type="text" class="form-control form-control-sm fld-child-age" placeholder="גיל"></div>' +
+        '</div></div>' +
+      '<div class="fld-options-wrap mt-2" style="display:none">' +
+        '<label class="small text-muted">אפשרות לכל שורה (רשימה נפתחת)</label>' +
+        '<textarea class="form-control form-control-sm fld-options" rows="3" placeholder="שורה לכל אפשרות"></textarea>' +
+      '</div>';
+
+    row.querySelector('.fld-type').value = data.type || 'text';
+    row.querySelector('.fld-label').value = data.label || '';
+    row.querySelector('.fld-required').checked = !!data.required;
+    var optTa = row.querySelector('.fld-options');
+    if (data.type === 'select') { optTa.value = (data.options || []).join('\n'); }
+    var cn = row.querySelector('.fld-child-name');
+    var ca = row.querySelector('.fld-child-age');
+    if (cn) cn.value = data.childNameLabel || 'שם הילד/ה';
+    if (ca) ca.value = data.childAgeLabel || 'גיל';
+
+    syncRowVisibility(row);
+
+    row.querySelector('.fld-type').addEventListener('change', function () { syncRowVisibility(row); });
+
+    var rm = row.querySelector('.fld-remove');
+    if (rm) rm.addEventListener('click', function () { row.remove(); });
+
+    row.addEventListener('dragstart', function (e) {
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', row.getAttribute('data-id') || '');
+    });
+    row.addEventListener('dragend', function () { row.classList.remove('dragging'); });
+    fieldList.appendChild(row);
+  }
+
+  fieldList.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    var dragging = fieldList.querySelector('.dragging');
+    if (!dragging) return;
+    var after = Array.from(fieldList.querySelectorAll('.field-builder-item')).find(function (el) {
+      if (el === dragging) return false;
+      return e.clientY < el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2;
+    });
+    if (after) fieldList.insertBefore(dragging, after);
+    else fieldList.appendChild(dragging);
+  });
+
+  document.getElementById('addFieldBtn').addEventListener('click', function () { addFieldRow({ type: 'text' }); });
+  initial.forEach(function (f) { addFieldRow(f); });
+  form.addEventListener('submit', function () { hiddenJson.value = JSON.stringify(getFields()); });
+
+  function uploadImage(file, onSuccess, onError) {
+    if (!file || !file.type.startsWith('image/')) { if (onError) onError('רק קבצי תמונה מותרים'); return; }
+    var fd = new FormData();
+    fd.append('image', file);
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/admin/upload-image');
+    xhr.onload = function () {
+      var resp;
+      try { resp = JSON.parse(xhr.responseText); } catch (e) { if (onError) onError('שגיאת שרת'); return; }
+      if (xhr.status === 200 && resp.key) { onSuccess(resp.key, URL.createObjectURL(file)); }
+      else { if (onError) onError(resp.error || 'שגיאת שרת'); }
+    };
+    xhr.onerror = function () { if (onError) onError('שגיאת רשת'); };
+    xhr.send(fd);
+  }
+
+  function makeDropZone(opts) {
+    var zone = opts.zone;
+    var preview = opts.preview;
+    var placeholder = opts.placeholder;
+    var hiddenInput = opts.hiddenInput;
+    var clearBtn = opts.clearBtn;
+    var clearHidden = opts.clearHidden;
+
+    function showOverlay(text) {
+      var ov = document.createElement('div');
+      ov.className = 'uploading-overlay';
+      ov.id = zone.id + '_overlay';
+      ov.textContent = text || 'מעלה…';
+      zone.appendChild(ov);
+    }
+    function hideOverlay() {
+      var ov = document.getElementById(zone.id + '_overlay');
+      if (ov) ov.remove();
+    }
+    function setImage(key, dataUrl) {
+      preview.src = dataUrl;
+      preview.style.display = 'block';
+      if (placeholder) placeholder.style.display = 'none';
+      hiddenInput.value = key;
+      clearHidden.value = 'false';
+      if (clearBtn) clearBtn.style.display = '';
+    }
+    function handleFile(file) {
+      showOverlay('מעלה…');
+      uploadImage(file,
+        function (key, objectUrl) { hideOverlay(); setImage(key, objectUrl); },
+        function (msg) { hideOverlay(); alert(msg || 'שגיאה בהעלאה'); }
+      );
+    }
+
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+    zone.addEventListener('click', function () { fileInput.click(); });
+    zone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+    fileInput.addEventListener('change', function () { if (fileInput.files[0]) handleFile(fileInput.files[0]); fileInput.value = ''; });
+
+    zone.addEventListener('dragover', function (e) { e.preventDefault(); e.stopPropagation(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', function (e) { e.stopPropagation(); zone.classList.remove('drag-over'); });
+    zone.addEventListener('drop', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      zone.classList.remove('drag-over');
+      var files = e.dataTransfer && e.dataTransfer.files;
+      if (files && files[0]) handleFile(files[0]);
+    });
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        preview.src = '';
+        preview.style.display = 'none';
+        if (placeholder) placeholder.style.display = '';
+        hiddenInput.value = '';
+        clearHidden.value = 'true';
+        clearBtn.style.display = 'none';
+      });
+    }
+  }
+
+  makeDropZone({
+    zone: document.getElementById('logoDropZone'),
+    preview: document.getElementById('logoPreview'),
+    placeholder: document.getElementById('logoPlaceholder'),
+    hiddenInput: document.getElementById('logoKey'),
+    clearBtn: document.getElementById('clearLogoBtn'),
+    clearHidden: document.getElementById('clearLogo'),
+  });
+
+  makeDropZone({
+    zone: document.getElementById('bgDropZone'),
+    preview: document.getElementById('bgPreview'),
+    placeholder: document.getElementById('bgPlaceholder'),
+    hiddenInput: document.getElementById('backgroundImageKey'),
+    clearBtn: document.getElementById('clearBgBtn'),
+    clearHidden: document.getElementById('clearBackground'),
+  });
+
+  var lastFocused = null;
+  ['logoDropZone', 'bgDropZone'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('mouseenter', function () { lastFocused = id; });
+    el.addEventListener('focus', function () { lastFocused = id; });
+  });
+
+  document.addEventListener('paste', function (e) {
+    var items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    var imgItem = null;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) { imgItem = items[i]; break; }
+    }
+    if (!imgItem) return;
+    e.preventDefault();
+    var file = imgItem.getAsFile();
+    if (!file) return;
+
+    var targetId = lastFocused || 'logoDropZone';
+    var zoneEl = document.getElementById(targetId);
+    var previewEl = document.getElementById(targetId === 'logoDropZone' ? 'logoPreview' : 'bgPreview');
+    var placeholderEl = document.getElementById(targetId === 'logoDropZone' ? 'logoPlaceholder' : 'bgPlaceholder');
+    var hiddenEl = document.getElementById(targetId === 'logoDropZone' ? 'logoKey' : 'backgroundImageKey');
+    var clearBtnEl = document.getElementById(targetId === 'logoDropZone' ? 'clearLogoBtn' : 'clearBgBtn');
+    var clearHiddenEl = document.getElementById(targetId === 'logoDropZone' ? 'clearLogo' : 'clearBackground');
+
+    if (!hiddenEl) return;
+
+    function showOverlay(text) {
+      var ov = document.createElement('div');
+      ov.className = 'uploading-overlay';
+      ov.id = targetId + '_overlay';
+      ov.textContent = text || 'מעלה…';
+      zoneEl.appendChild(ov);
+    }
+    function hideOverlay() {
+      var ov = document.getElementById(targetId + '_overlay');
+      if (ov) ov.remove();
+    }
+
+    showOverlay('מעלה…');
+    uploadImage(file,
+      function (key, objectUrl) {
+        hideOverlay();
+        previewEl.src = objectUrl;
+        previewEl.style.display = 'block';
+        if (placeholderEl) placeholderEl.style.display = 'none';
+        hiddenEl.value = key;
+        clearHiddenEl.value = 'false';
+        if (clearBtnEl) clearBtnEl.style.display = '';
+      },
+      function (msg) { hideOverlay(); alert(msg || 'שגיאה בהעלאה'); }
+    );
+  });
+})();
+</script>

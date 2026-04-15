@@ -1,0 +1,39 @@
+<nav class="navbar navbar-dark admin-navbar mb-4">
+  <div class="container-fluid">
+    <span class="navbar-brand mb-0 h1 fs-5"><a class="text-white text-decoration-none" href="/admin">לוח בקרה</a></span>
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+      <% if (sessionUser.role !== 'superadmin' && sessionUser.activeAccountName) { %>
+        <span class="text-light small me-1"><%= sessionUser.activeAccountName %></span>
+      <% } %>
+
+      <% if (memberships && memberships.length > 1) { %>
+        <div class="dropdown">
+          <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            החלף חשבון
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <% memberships.forEach(function(m) { %>
+              <li>
+                <form method="post" action="/admin/set-active-account" class="d-inline w-100">
+                  <input type="hidden" name="accountId" value="<%= m.accountId._id || m.accountId %>">
+                  <button type="submit" class="dropdown-item<%= String(m.accountId._id || m.accountId) === sessionUser.activeAccountId ? ' active' : '' %>">
+                    <%= m.accountId.name || m.accountId %>
+                  </button>
+                </form>
+              </li>
+            <% }); %>
+          </ul>
+        </div>
+      <% } %>
+
+      <a class="btn btn-outline-light btn-sm" href="/" target="_blank" rel="noopener">דף הבית</a>
+      <a class="btn btn-outline-light btn-sm" href="/admin/events">אירועים</a>
+      <% if (sessionUser.role === 'superadmin') { %>
+        <a class="btn btn-outline-light btn-sm" href="/admin/accounts">חשבונות</a>
+      <% } %>
+      <form action="/admin/logout" method="post" class="d-inline">
+        <button type="submit" class="btn btn-warning btn-sm">יציאה</button>
+      </form>
+    </div>
+  </div>
+</nav>

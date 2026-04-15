@@ -1,0 +1,161 @@
+<%
+  var c = config.colors || {};
+  var primary = c.primary || '#0d6efd';
+  var bg = c.background || '#f8f9fa';
+  var text = c.text || '#212529';
+  var btn = c.button || primary;
+  var bgImg = config.backgroundImage ? ('url(' + config.backgroundImage + ')') : 'none';
+  var sortedFields = (fields || []).slice().sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+  var childrenField = sortedFields.filter(function(f) { return f.type === 'children'; })[0];
+  var childNameLbl = childrenField && childrenField.childNameLabel ? childrenField.childNameLabel : 'שם הילד/ה';
+  var childAgeLbl = childrenField && childrenField.childAgeLabel ? childrenField.childAgeLabel : 'גיל';
+%>
+<%- include('partials/header', { title: title, bodyClass: 'public-form-page' }) %>
+<style>
+  .public-form-wrap {
+    --cf-primary: <%= primary %>;
+    --cf-bg: <%= bg %>;
+    --cf-text: <%= text %>;
+    --cf-btn: <%= btn %>;
+    background-color: var(--cf-bg);
+    background-image: <%- bgImg %>;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    color: var(--cf-text);
+    min-height: 100vh;
+  }
+  .public-form-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 0.75rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0,0,0,0.12);
+  }
+  .public-form-card .text-muted { color: #6c757d !important; }
+  .btn-cf-submit {
+    background-color: var(--cf-btn);
+    border-color: var(--cf-btn);
+    color: #fff;
+  }
+  .btn-cf-submit:hover {
+    filter: brightness(0.92);
+    color: #fff;
+  }
+  .form-logo { max-height: 120px; max-width: 100%; object-fit: contain; }
+</style>
+<div class="public-form-wrap py-4">
+  <div class="container" style="max-width: 40rem;">
+    <div class="public-form-card p-4 p-md-5">
+      <% if (config.logoUrl) { %>
+        <div class="text-center mb-4">
+          <img src="<%- config.logoUrl %>" alt="" class="form-logo">
+        </div>
+      <% } %>
+      <h1 class="h4 mb-2 text-center"><%= event.name %></h1>
+      <% if (typeof descriptionHtml !== 'undefined' && descriptionHtml) { %>
+        <div class="event-description small mb-0"><%- descriptionHtml %></div>
+      <% } %>
+      <% if (event.date) { %>
+        <p class="small text-center mb-2 mt-0 py-0 event-date-line">מועד: <%= new Date(event.date).toLocaleString('he-IL') %></p>
+      <% } %>
+
+      <% var sa = typeof signupAvailability !== 'undefined' && signupAvailability ? signupAvailability : { open: true }; %>
+
+      <% if (!sa.open && sa.message) { %>
+        <div class="alert alert-warning" role="alert"><%= sa.message %></div>
+      <% } %>
+
+      <% if (formErrors && formErrors.length) { %>
+        <div class="alert alert-danger" role="alert">
+          <ul class="mb-0 pe-3">
+            <% formErrors.forEach(function(e) { %><li><%= e %></li><% }); %>
+          </ul>
+        </div>
+      <% } %>
+
+      <% if (sa.open) { %>
+      <form action="/register/<%= encodeURIComponent(event.slug) %>" method="post" novalidate id="registration-form">
+        <% sortedFields.forEach(function(f) { %>
+          <% if (f.type === 'parent_first') { %>
+            <div class="mb-3">
+              <label class="form-label" for="parentFirstName"><%= f.label %><%= f.required ? ' *' : '' %></label>
+              <input class="form-control" id="parentFirstName" name="parentFirstName" maxlength="120" <%= f.required ? 'required' : '' %>
+                value="<%= oldBody && oldBody.parentFirstName ? oldBody.parentFirstName : '' %>">
+            </div>
+          <% } else if (f.type === 'parent_last') { %>
+            <div class="mb-3">
+              <label class="form-label" for="parentLastName"><%= f.label %><%= f.required ? ' *' : '' %></label>
+              <input class="form-control" id="parentLastName" name="parentLastName" maxlength="120" <%= f.required ? 'required' : '' %>
+                value="<%= oldBody && oldBody.parentLastName ? oldBody.parentLastName : '' %>">
+            </div>
+          <% } else if (f.type === 'phone') { %>
+            <div class="mb-3">
+              <label class="form-label" for="phone"><%= f.label %><%= f.required ? ' *' : '' %></label>
+              <input class="form-control" type="tel" id="phone" name="phone" maxlength="30" <%= f.required ? 'required' : '' %>
+                value="<%= oldBody && oldBody.phone ? oldBody.phone : '' %>">
+            </div>
+          <% } else if (f.type === 'children') { %>
+            <h2 class="h6 mt-4 mb-3"><%= f.label %></h2>
+            <div id="children-container" class="mb-2" data-name-label="<%= childNameLbl %>" data-age-label="<%= childAgeLbl %>">
+              <% (childRows || [{ name: '', age: '' }]).forEach(function(row, idx) { %>
+                <div class="child-row border rounded p-3 mb-2" data-index="<%= idx %>">
+                  <div class="row g-2 align-items-end">
+                    <div class="col-md-6">
+                      <label class="form-label child-lbl-name"><%= childNameLbl %><%= f.required ? ' *' : '' %></label>
+                      <input class="form-control child-name" type="text" name="children[<%= idx %>][name]" maxlength="120" <%= f.required ? 'required' : '' %> value="<%= row.name %>">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label child-lbl-age"><%= childAgeLbl %><%= f.required ? ' *' : '' %></label>
+                      <input class="form-control child-age" type="number" name="children[<%= idx %>][age]" min="0" max="120" <%= f.required ? 'required' : '' %> value="<%= row.age %>">
+                    </div>
+                    <div class="col-md-2 text-md-start text-end">
+                      <button type="button" class="btn btn-outline-danger btn-sm btn-remove-child" title="הסר">הסר</button>
+                    </div>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+            <button type="button" class="btn btn-outline-secondary btn-sm mb-4" id="add-child-btn">+ הוסף ילד/ה</button>
+          <% } else if (f.type === 'text') { %>
+            <% var cid = 'custom_' + f.id; var val = oldBody && oldBody[cid] !== undefined ? oldBody[cid] : ''; %>
+            <div class="mb-3">
+              <label class="form-label" for="<%= cid %>"><%= f.label %><%= f.required ? ' *' : '' %></label>
+              <input class="form-control" id="<%= cid %>" name="<%= cid %>" maxlength="500" <%= f.required ? 'required' : '' %>
+                value="<%= typeof val === 'string' ? val : '' %>">
+            </div>
+          <% } else if (f.type === 'textarea') { %>
+            <% var cid = 'custom_' + f.id; var val = oldBody && oldBody[cid] !== undefined ? oldBody[cid] : ''; %>
+            <div class="mb-3">
+              <label class="form-label" for="<%= cid %>"><%= f.label %><%= f.required ? ' *' : '' %></label>
+              <textarea class="form-control" id="<%= cid %>" name="<%= cid %>" rows="3" <%= f.required ? 'required' : '' %>><%= typeof val === 'string' ? val : '' %></textarea>
+            </div>
+          <% } else if (f.type === 'select') { %>
+            <% var cid = 'custom_' + f.id; var val = oldBody && oldBody[cid] !== undefined ? oldBody[cid] : ''; %>
+            <div class="mb-3">
+              <label class="form-label" for="<%= cid %>"><%= f.label %><%= f.required ? ' *' : '' %></label>
+              <select class="form-select" id="<%= cid %>" name="<%= cid %>" <%= f.required ? 'required' : '' %>>
+                <option value="">— בחרו —</option>
+                <% (f.options || []).forEach(function(opt) { %>
+                  <option value="<%= opt %>" <%= String(val) === opt ? 'selected' : '' %>><%= opt %></option>
+                <% }); %>
+              </select>
+            </div>
+          <% } else if (f.type === 'checkbox') { %>
+            <% var cid = 'custom_' + f.id; var val = oldBody && oldBody[cid] !== undefined ? oldBody[cid] : ''; %>
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" id="<%= cid %>" name="<%= cid %>" value="true"
+                <%= val === 'true' || val === true ? 'checked' : '' %> <%= f.required ? 'required' : '' %>>
+              <label class="form-check-label" for="<%= cid %>"><%= f.label %><%= f.required ? ' *' : '' %></label>
+            </div>
+          <% } %>
+        <% }); %>
+
+        <div class="d-grid gap-2 mt-4">
+          <button type="submit" class="btn btn-lg btn-cf-submit">שליחת טופס</button>
+        </div>
+      </form>
+      <% } %>
+    </div>
+  </div>
+</div>
+<script src="/js/form.js"></script>
+<%- include('partials/footer') %>

@@ -1,0 +1,28 @@
+<%- include('partials/header', { title: title }) %>
+<main class="container py-4">
+  <h1 class="h3 mb-4">אירועים פעילים</h1>
+  <% if (!events || !events.length) { %>
+    <p class="text-muted">אין אירועים זמינים כרגע.</p>
+  <% } else { %>
+    <div class="row g-3">
+      <% events.forEach(function(ev) { %>
+        <div class="col-md-6 col-lg-4">
+          <div class="card h-100 shadow-sm">
+            <div class="card-body">
+              <h2 class="h5 card-title"><%= ev.name %></h2>
+              <% if (ev.date) { %>
+                <p class="small text-muted mb-2"><%= new Date(ev.date).toLocaleString('he-IL') %></p>
+              <% } %>
+              <% if (ev.description) { %>
+                <p class="card-text small"><%= ev.description %></p>
+              <% } %>
+              <a href="/register/<%= encodeURIComponent(ev.slug || '') %>" class="btn btn-primary">הרשמה</a>
+            </div>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  <% } %>
+  <p class="mt-4 small"><a href="/admin/login">כניסת מנהלים</a></p>
+</main>
+<%- include('partials/footer') %>

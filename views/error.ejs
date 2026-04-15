@@ -1,0 +1,7 @@
+<%- include('partials/header', { title: typeof title !== 'undefined' ? title : 'שגיאה' }) %>
+<main class="container py-5 text-center">
+  <h1 class="h4 mb-3"><%= typeof title !== 'undefined' ? title : 'שגיאה' %></h1>
+  <p class="text-danger"><%= typeof message !== 'undefined' ? message : 'אירעה שגיאה' %></p>
+  <a href="/" class="btn btn-primary">דף הבית</a>
+</main>
+<%- include('partials/footer') %>

@@ -1,0 +1,26 @@
+{
+  "name": "event-signup",
+  "version": "1.0.0",
+  "description": "Event registration for children's activities",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1030.0",
+    "@aws-sdk/s3-request-presigner": "^3.1030.0",
+    "bcryptjs": "*",
+    "connect-mongo": "^6.0.0",
+    "dotenv": "^17.4.2",
+    "ejs": "^5.0.2",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0",
+    "luxon": "*",
+    "mongoose": "^9.4.1",
+    "multer": "^2.1.1",
+    "sanitize-html": "^2.17.2"
+  }
+}

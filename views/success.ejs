@@ -1,0 +1,64 @@
+<%
+  var c = config.colors || {};
+  var primary = c.primary || '#0d6efd';
+  var bg = c.background || '#f8f9fa';
+  var text = c.text || '#212529';
+  var btn = c.button || primary;
+  var bgImg = config.backgroundImage ? ('url(' + config.backgroundImage + ')') : 'none';
+  var overlay = typeof overlayRgba !== 'undefined' ? overlayRgba : 'rgba(248,249,250,0.82)';
+%>
+<%- include('partials/header', { title: title, bodyClass: 'public-form-page' }) %>
+<style>
+  .success-page-wrap {
+    --cf-primary: <%= primary %>;
+    --cf-bg: <%= bg %>;
+    --cf-text: <%= text %>;
+    --cf-btn: <%= btn %>;
+    background-color: var(--cf-bg);
+    background-image: <%- bgImg %>;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    min-height: 100vh;
+    position: relative;
+  }
+  .success-page-overlay {
+    position: absolute;
+    inset: 0;
+    background: <%= overlay %>;
+    pointer-events: none;
+  }
+  .success-page-inner {
+    position: relative;
+    z-index: 1;
+  }
+  .success-page-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 0.75rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0,0,0,0.12);
+    color: var(--cf-text);
+  }
+  .success-page-card .text-success { color: #198754 !important; }
+  .form-logo { max-height: 120px; max-width: 100%; object-fit: contain; }
+</style>
+<div class="success-page-wrap">
+  <div class="success-page-overlay" aria-hidden="true"></div>
+  <div class="success-page-inner py-5">
+    <div class="container text-center" style="max-width: 32rem;">
+      <div class="success-page-card p-4 p-md-5">
+        <% if (config.logoUrl) { %>
+          <div class="mb-4">
+            <img src="<%- config.logoUrl %>" alt="" class="form-logo">
+          </div>
+        <% } %>
+        <h1 class="h3 mb-3 text-success">ההרשמה התקבלה בהצלחה</h1>
+        <% if (eventName) { %>
+          <p class="mb-0">תודה על ההרשמה לאירוע: <strong><%= eventName %></strong></p>
+        <% } else { %>
+          <p class="mb-0">תודה על ההרשמה.</p>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('partials/footer') %>
