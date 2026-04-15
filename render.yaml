@@ -1,0 +1,29 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# After deploy: Dashboard → service → Custom Domains → add harish-events.co (DNS per Render instructions)
+services:
+  - type: web
+    name: harish-events
+    runtime: node
+    plan: starter
+    region: frankfurt
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: IDRIVE_E2_ENDPOINT
+        sync: false
+      - key: IDRIVE_E2_REGION
+        sync: false
+      - key: IDRIVE_E2_ACCESS_KEY
+        sync: false
+      - key: IDRIVE_E2_SECRET_KEY
+        sync: false
+      - key: IDRIVE_E2_BUCKET
+        sync: false

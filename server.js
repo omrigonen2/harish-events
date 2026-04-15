@@ -12,7 +12,9 @@ const adminAccountRoutes = require('./routes/admin-accounts');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isProd = process.env.NODE_ENV === 'production';
 
+app.set('trust proxy', 1);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -36,6 +38,7 @@ app.use(
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       sameSite: 'lax',
+      secure: isProd,
     },
   })
 );
@@ -55,8 +58,8 @@ app.use((err, req, res, next) => {
 mongoose
   .connect(mongoUrl)
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server listening on port ${PORT}`);
     });
   })
   .catch((e) => {
