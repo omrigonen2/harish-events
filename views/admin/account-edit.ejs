@@ -1,0 +1,29 @@
+<%- include('../partials/header', { title: title }) %>
+<%- include('partials/admin-navbar', { sessionUser: locals.sessionUser || {}, memberships: locals.memberships || [] }) %>
+<main class="container pb-5" style="max-width: 36rem;">
+  <h1 class="h4 mb-4">עריכת חשבון</h1>
+
+  <% if (formError) { %>
+    <div class="alert alert-danger"><%= formError %></div>
+  <% } %>
+
+  <div class="card admin-card p-4">
+    <form method="post" action="/admin/accounts/<%= account._id %>/update">
+      <div class="mb-3">
+        <label class="form-label">שם החשבון *</label>
+        <input class="form-control" name="name" required value="<%= account.name %>">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">מזהה (slug)</label>
+        <input class="form-control" name="slug" value="<%= account.slug %>" dir="ltr">
+        <p class="small text-muted mb-0">מזהה ייחודי לניהול פנימי; אם השם תפוס יתווסף מספר אוטומטית.</p>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <button type="submit" class="btn btn-primary">שמירה</button>
+        <a href="/admin/accounts/<%= account._id %>/users" class="btn btn-outline-secondary">משתמשים</a>
+        <a href="/admin/accounts" class="btn btn-outline-secondary">כל החשבונות</a>
+      </div>
+    </form>
+  </div>
+</main>
+<%- include('../partials/footer') %>

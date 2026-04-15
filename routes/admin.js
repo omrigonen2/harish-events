@@ -551,6 +551,23 @@ router.get('/events/:id/registrations', requireAccountContext, async (req, res) 
   }
 });
 
+router.post('/events/:eventId/registrations/:registrationId/delete', requireAccountContext, async (req, res) => {
+  try {
+    const eventDoc = await loadEventScoped(req.params.eventId, req.session);
+    if (!eventDoc) return res.status(404).render('error', { title: 'לא נמצא', message: 'אירוע לא קיים' });
+    const event = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
+
+    const reg = await Registration.findOne({ _id: req.params.registrationId, eventId: event._id });
+    if (!reg) return res.status(404).render('error', { title: 'לא נמצא', message: 'הרשמה לא נמצאה' });
+
+    await reg.deleteOne();
+    return res.redirect(`/admin/events/${event._id}/registrations`);
+  } catch (err) {
+    console.error(err);
+    res.status(500).render('error', { title: 'שגיאה', message: 'מחיקה נכשלה' });
+  }
+});
+
 function csvEscape(cell) {
   const s = cell === null || cell === undefined ? '' : String(cell);
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

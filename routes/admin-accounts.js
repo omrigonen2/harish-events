@@ -17,6 +17,32 @@ function slugify(text) {
     .replace(/--+/g, '-') || `account-${Date.now()}`;
 }
 
+async function uniqueAccountSlug(baseSlug, excludeId) {
+  let slug = baseSlug || `account-${Date.now()}`;
+  let candidate = slug;
+  let n = 0;
+  for (;;) {
+    const query = { slug: candidate };
+    if (excludeId) query._id = { $ne: excludeId };
+    const exists = await Account.findOne(query);
+    if (!exists) return candidate;
+    n += 1;
+    candidate = `${slug}-${n}`;
+  }
+}
+
+function sessionUserLocals(req) {
+  return {
+    sessionUser: {
+      displayName: req.session.displayName || '',
+      role: req.session.role,
+      activeAccountId: req.session.activeAccountId || null,
+      activeAccountName: req.session.activeAccountName || null,
+    },
+    memberships: [],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Accounts list + create
 // ---------------------------------------------------------------------------
@@ -33,13 +59,7 @@ router.get('/accounts', requireSuperAdmin, async (req, res) => {
     accounts,
     memberCountMap,
     formError: null,
-    sessionUser: {
-      displayName: req.session.displayName || '',
-      role: req.session.role,
-      activeAccountId: req.session.activeAccountId || null,
-      activeAccountName: req.session.activeAccountName || null,
-    },
-    memberships: [],
+    ...sessionUserLocals(req),
   });
 });
 
@@ -57,18 +77,54 @@ router.post('/accounts/create', requireSuperAdmin, async (req, res) => {
         accounts,
         memberCountMap,
         formError: 'שם חשבון חובה',
-        sessionUser: {
-          displayName: req.session.displayName || '',
-          role: req.session.role,
-          activeAccountId: req.session.activeAccountId || null,
-          activeAccountName: req.session.activeAccountName || null,
-        },
-        memberships: [],
+        ...sessionUserLocals(req),
       });
     }
-    const slug = slugify(name);
+    const slug = await uniqueAccountSlug(slugify(name));
     await Account.create({ name, slug });
     return res.redirect('/admin/accounts');
+  } catch (err) {
+    console.error(err);
+    return res.status(500).render('error', { title: 'שגיאה', message: err.message || 'שגיאת שרת' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Account edit
+// ---------------------------------------------------------------------------
+
+router.get('/accounts/:accountId/edit', requireSuperAdmin, async (req, res) => {
+  const account = await Account.findById(req.params.accountId).lean();
+  if (!account) return res.status(404).render('error', { title: 'לא נמצא', message: 'חשבון לא קיים' });
+
+  res.render('admin/account-edit', {
+    title: `עריכת חשבון — ${account.name}`,
+    account,
+    formError: null,
+    ...sessionUserLocals(req),
+  });
+});
+
+router.post('/accounts/:accountId/update', requireSuperAdmin, async (req, res) => {
+  try {
+    const account = await Account.findById(req.params.accountId);
+    if (!account) return res.status(404).render('error', { title: 'לא נמצא', message: 'חשבון לא קיים' });
+
+    const name = (req.body.name || '').trim();
+    const slugInput = (req.body.slug || '').trim();
+    if (!name) {
+      return res.status(400).render('admin/account-edit', {
+        title: 'עריכת חשבון',
+        account: account.toObject(),
+        formError: 'שם חשבון חובה',
+        ...sessionUserLocals(req),
+      });
+    }
+
+    account.name = name;
+    account.slug = await uniqueAccountSlug(slugify(slugInput || name), account._id);
+    await account.save();
+    return res.redirect(`/admin/accounts/${account._id}/edit`);
   } catch (err) {
     console.error(err);
     return res.status(500).render('error', { title: 'שגיאה', message: err.message || 'שגיאת שרת' });
@@ -90,12 +146,7 @@ router.get('/accounts/:accountId/users', requireSuperAdmin, async (req, res) => 
     account,
     memberships,
     formError: null,
-    sessionUser: {
-      displayName: req.session.displayName || '',
-      role: req.session.role,
-      activeAccountId: req.session.activeAccountId || null,
-      activeAccountName: req.session.activeAccountName || null,
-    },
+    ...sessionUserLocals(req),
     membershipsList: [],
   });
 });

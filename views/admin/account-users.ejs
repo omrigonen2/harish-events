@@ -1,7 +1,10 @@
 <%- include('../partials/header', { title: title }) %>
 <%- include('partials/admin-navbar', { sessionUser: locals.sessionUser || {}, memberships: locals.membershipsList || [] }) %>
 <main class="container pb-5">
-  <h1 class="h4 mb-4">משתמשים בחשבון: <%= account.name %></h1>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <h1 class="h4 mb-0">משתמשים בחשבון: <%= account.name %></h1>
+    <a href="/admin/accounts/<%= account._id %>/edit" class="btn btn-outline-secondary btn-sm">עריכת חשבון</a>
+  </div>
 
   <% if (formError) { %>
     <div class="alert alert-danger"><%= formError %></div>

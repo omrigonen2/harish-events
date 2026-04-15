@@ -28,6 +28,7 @@
             <% customFieldDefs.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); }).forEach(function(f) { %>
               <th><%= f.label %></th>
             <% }); %>
+            <th class="text-center" style="width: 5rem;"></th>
           </tr>
         </thead>
         <tbody>
@@ -53,6 +54,12 @@
                   <% } %>
                 </td>
               <% }); %>
+              <td class="text-center">
+                <form method="post" action="/admin/events/<%= event._id %>/registrations/<%= r._id %>/delete" class="d-inline"
+                      onsubmit="return confirm('למחוק הרשמה זו?');">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">מחק</button>
+                </form>
+              </td>
             </tr>
           <% }); %>
         </tbody>

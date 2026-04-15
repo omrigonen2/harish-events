@@ -36,7 +36,8 @@
                 <td><%= acct.name %></td>
                 <td><code><%= acct.slug %></code></td>
                 <td><%= memberCountMap[String(acct._id)] || 0 %></td>
-                <td>
+                <td class="text-nowrap">
+                  <a href="/admin/accounts/<%= acct._id %>/edit" class="btn btn-sm btn-outline-secondary">עריכה</a>
                   <a href="/admin/accounts/<%= acct._id %>/users" class="btn btn-sm btn-outline-primary">משתמשים</a>
                 </td>
               </tr>
