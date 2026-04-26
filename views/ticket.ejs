@@ -1,0 +1,23 @@
+<%- include('partials/header', { title: title, bodyClass: 'bg-light' }) %>
+<main class="container py-5" style="max-width: 34rem;">
+  <div class="card shadow-sm p-4 text-center">
+    <p class="text-muted small mb-2">כרטיס כניסה</p>
+    <h1 class="h4 mb-3"><%= event.name %></h1>
+    <% if (event.date) { %>
+      <p class="mb-2">מועד: <%= formatDateTimeIsrael(event.date) %></p>
+    <% } %>
+    <p class="mb-4">
+      שם: <%= ((registration.parentFirstName || '') + ' ' + (registration.parentLastName || '')).trim() || 'ללא שם' %>
+    </p>
+
+    <img src="<%= qrUrl %>" alt="QR code" class="img-fluid mx-auto mb-3" style="max-width: 18rem;">
+    <% if (registration.ticketCheckedInAt) { %>
+      <div class="alert alert-success mb-0">
+        הכרטיס אושר בכניסה: <%= formatDateTimeIsrael(registration.ticketCheckedInAt) %>
+      </div>
+    <% } else { %>
+      <p class="text-muted small mb-0">יש להציג את קוד ה-QR בכניסה לאירוע.</p>
+    <% } %>
+  </div>
+</main>
+<%- include('partials/footer') %>

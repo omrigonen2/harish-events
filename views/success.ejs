@@ -53,9 +53,12 @@
         <% } %>
         <h1 class="h3 mb-3 text-success">ההרשמה התקבלה בהצלחה</h1>
         <% if (eventName) { %>
-          <p class="mb-0">תודה על ההרשמה לאירוע: <strong><%= eventName %></strong></p>
+          <p class="mb-2">תודה על ההרשמה לאירוע: <strong><%= eventName %></strong></p>
         <% } else { %>
-          <p class="mb-0">תודה על ההרשמה.</p>
+          <p class="mb-2">תודה על ההרשמה.</p>
+        <% } %>
+        <% if (typeof ticketSent !== 'undefined' && ticketSent) { %>
+          <p class="small text-muted mb-0">הכרטיס נשלח אליך בוואטסאפ.</p>
         <% } %>
       </div>
     </div>

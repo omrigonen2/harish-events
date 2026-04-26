@@ -4,6 +4,7 @@ const Account = require('../models/Account');
 const User = require('../models/User');
 const AccountMembership = require('../models/AccountMembership');
 const { requireSuperAdmin } = require('../middleware/auth');
+const { checkConnection, getSettings, saveSettings } = require('../lib/wasender');
 
 const router = express.Router();
 
@@ -42,6 +43,62 @@ function sessionUserLocals(req) {
     memberships: [],
   };
 }
+
+// ---------------------------------------------------------------------------
+// Integrations
+// ---------------------------------------------------------------------------
+
+router.get('/integrations/wasender', requireSuperAdmin, async (req, res) => {
+  const settings = await getSettings();
+  res.render('admin/wasender-settings', {
+    title: 'הגדרות Wasender',
+    settings,
+    formError: null,
+    formMessage: null,
+    statusResult: null,
+    ...sessionUserLocals(req),
+  });
+});
+
+router.post('/integrations/wasender', requireSuperAdmin, async (req, res) => {
+  try {
+    const apiKey = (req.body.apiKey || '').trim();
+    const baseUrl = (req.body.baseUrl || '').trim();
+    const settings = await saveSettings({ apiKey, baseUrl });
+    return res.render('admin/wasender-settings', {
+      title: 'הגדרות Wasender',
+      settings,
+      formError: null,
+      formMessage: 'ההגדרות נשמרו.',
+      statusResult: null,
+      ...sessionUserLocals(req),
+    });
+  } catch (err) {
+    console.error(err);
+    const settings = await getSettings();
+    return res.status(500).render('admin/wasender-settings', {
+      title: 'הגדרות Wasender',
+      settings,
+      formError: err.message || 'שמירה נכשלה',
+      formMessage: null,
+      statusResult: null,
+      ...sessionUserLocals(req),
+    });
+  }
+});
+
+router.post('/integrations/wasender/check', requireSuperAdmin, async (req, res) => {
+  const result = await checkConnection();
+  const settings = result.settings || await getSettings();
+  res.render('admin/wasender-settings', {
+    title: 'הגדרות Wasender',
+    settings,
+    formError: null,
+    formMessage: null,
+    statusResult: result,
+    ...sessionUserLocals(req),
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Accounts list + create

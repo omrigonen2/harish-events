@@ -30,6 +30,7 @@
             <th>טלפון</th>
             <th class="text-center">מספר ילדים</th>
             <th>ילדים</th>
+            <th>כרטיס / כניסה</th>
             <% customFieldDefs.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); }).forEach(function(f) { %>
               <th><%= f.label %></th>
             <% }); %>
@@ -48,6 +49,15 @@
                 <% (r.children || []).forEach(function(c, j) { %>
                   <%= c.name %> (<%= c.age %>)<% if (j < r.children.length - 1) { %>, <% } %>
                 <% }); %>
+              </td>
+              <td class="text-nowrap">
+                <% if (r.ticketCheckedInAt) { %>
+                  אושר: <%= formatDateTimeIsrael(r.ticketCheckedInAt) %>
+                <% } else if (r.ticketToken) { %>
+                  נשלח / ממתין
+                <% } else { %>
+                  —
+                <% } %>
               </td>
               <% customFieldDefs.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); }).forEach(function(f) { %>
                 <td>

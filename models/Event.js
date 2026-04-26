@@ -19,9 +19,15 @@ const eventSchema = new mongoose.Schema(
     signupLimitCountMode: { type: String, enum: ['families', 'participants', 'children'], default: 'families' },
     /** when reached, public form shows closed (Israel local time in admin UI) */
     signupCloseAt: { type: Date, default: null },
+    /** Optional WhatsApp ticket with QR check-in */
+    ticketsEnabled: { type: Boolean, default: false },
+    /** Secret staff check-in link token; generated when ticketing is enabled */
+    checkInToken: { type: String, trim: true },
   },
   { timestamps: true }
 );
+
+eventSchema.index({ checkInToken: 1 }, { unique: true, sparse: true });
 
 function slugify(text) {
   return text

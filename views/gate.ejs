@@ -1,0 +1,71 @@
+<%- include('partials/header', { title: title, bodyClass: 'bg-light' }) %>
+<main class="container py-4" style="max-width: 38rem;">
+  <div class="card shadow-sm p-4">
+    <h1 class="h4 mb-2 text-center">סריקת כרטיסים</h1>
+    <p class="text-center text-muted mb-4"><%= event.name %></p>
+
+    <div id="reader" class="border rounded overflow-hidden bg-white mb-3"></div>
+    <div id="scan-result" class="alert alert-secondary mb-3">מוכן לסריקה.</div>
+
+    <form id="manual-form" class="input-group">
+      <input class="form-control" id="manual-ticket" placeholder="הדבק קישור / קוד כרטיס ידנית">
+      <button class="btn btn-primary" type="submit">אישור</button>
+    </form>
+  </div>
+</main>
+<script src="https://unpkg.com/html5-qrcode" crossorigin="anonymous"></script>
+<script>
+  (function () {
+    const resultBox = document.getElementById('scan-result');
+    const manualForm = document.getElementById('manual-form');
+    const manualInput = document.getElementById('manual-ticket');
+    let busy = false;
+
+    function setResult(type, message, holder) {
+      resultBox.className = 'alert alert-' + type + ' mb-3';
+      resultBox.textContent = holder ? message + ' — ' + holder : message;
+    }
+
+    async function redeem(value) {
+      if (busy || !value) return;
+      busy = true;
+      setResult('secondary', 'בודק כרטיס...');
+      try {
+        const response = await fetch('/gate/<%= encodeURIComponent(checkInToken) %>/redeem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticketToken: value }),
+        });
+        const payload = await response.json();
+        const holder = payload.holderSummary ? payload.holderSummary.name : '';
+        if (payload.ok && payload.status === 'checked_in') setResult('success', payload.message, holder);
+        else if (payload.ok) setResult('warning', payload.message, holder);
+        else setResult('danger', payload.message || 'הכרטיס לא תקין');
+      } catch (err) {
+        setResult('danger', 'שגיאת תקשורת');
+      } finally {
+        setTimeout(function () { busy = false; }, 1200);
+      }
+    }
+
+    manualForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      redeem(manualInput.value.trim());
+      manualInput.value = '';
+    });
+
+    if (window.Html5Qrcode) {
+      const scanner = new Html5Qrcode('reader');
+      scanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 260, height: 260 } },
+        redeem
+      ).catch(function () {
+        setResult('warning', 'לא ניתן לפתוח מצלמה. אפשר להדביק את קוד הכרטיס ידנית.');
+      });
+    } else {
+      setResult('warning', 'ספריית הסריקה לא נטענה. אפשר להדביק את קוד הכרטיס ידנית.');
+    }
+  })();
+</script>
+<%- include('partials/footer') %>

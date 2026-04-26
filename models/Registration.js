@@ -21,8 +21,14 @@ const registrationSchema = new mongoose.Schema(
     phone: { type: String, default: '', trim: true },
     children: { type: [childSchema], default: [] },
     customFields: { type: mongoose.Schema.Types.Mixed, default: {} },
+    ticketToken: { type: String, trim: true },
+    ticketCheckedInAt: { type: Date, default: null },
+    ticketWhatsAppSentAt: { type: Date, default: null },
+    ticketWhatsAppError: { type: String, default: '', trim: true },
   },
   { timestamps: true }
 );
+
+registrationSchema.index({ ticketToken: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Registration', registrationSchema);

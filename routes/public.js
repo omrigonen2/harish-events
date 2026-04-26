@@ -11,6 +11,12 @@ const {
 } = require('../lib/formFields');
 const { sanitizeDescription } = require('../lib/htmlSanitize');
 const { getSignupAvailability } = require('../lib/signupLimits');
+const {
+  assignTicketToken,
+  buildTicketUrl,
+  ensureEventCheckInToken,
+} = require('../lib/tickets');
+const { sendTicket } = require('../lib/wasender');
 
 const router = express.Router();
 
@@ -257,7 +263,7 @@ router.post('/register/:eventId', async (req, res) => {
       });
     }
 
-    await Registration.create({
+    const registration = await Registration.create({
       eventId: event._id,
       parentFirstName,
       parentLastName,
@@ -266,7 +272,39 @@ router.post('/register/:eventId', async (req, res) => {
       customFields,
     });
 
-    return res.redirect(`/success?event=${encodeURIComponent(event.name)}&eid=${event._id}`);
+    let ticketSent = false;
+    if (event.ticketsEnabled) {
+      try {
+        const eventDoc = await Event.findById(event._id);
+        await ensureEventCheckInToken(eventDoc);
+        await assignTicketToken(registration);
+
+        const eventForMessage = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
+        const ticketUrl = buildTicketUrl(req, registration.ticketToken);
+        const result = await sendTicket({
+          event: eventForMessage,
+          registration,
+          ticketUrl,
+          qrImageUrl: `${ticketUrl}/qr.png`,
+        });
+
+        if (result.sent) {
+          registration.ticketWhatsAppSentAt = new Date();
+          registration.ticketWhatsAppError = '';
+          ticketSent = true;
+        } else if (result.error) {
+          registration.ticketWhatsAppError = result.error;
+        }
+        await registration.save();
+      } catch (ticketErr) {
+        console.error('ticket send error', ticketErr);
+        registration.ticketWhatsAppError = ticketErr.message || 'Ticket send failed';
+        await registration.save().catch(() => {});
+      }
+    }
+
+    const ticketParam = ticketSent ? '&ticketSent=1' : '';
+    return res.redirect(`/success?event=${encodeURIComponent(event.name)}&eid=${event._id}${ticketParam}`);
   } catch (err) {
     console.error(err);
     res.status(500).render('error', { title: 'שגיאה', message: 'לא ניתן לשמור את ההרשמה' });
@@ -295,6 +333,7 @@ router.get('/success', async (req, res) => {
       eventName,
       config,
       overlayRgba,
+      ticketSent: req.query.ticketSent === '1',
     });
   } catch (err) {
     console.error(err);
@@ -303,6 +342,7 @@ router.get('/success', async (req, res) => {
       eventName,
       config: defaults,
       overlayRgba: 'rgba(248,249,250,0.82)',
+      ticketSent: req.query.ticketSent === '1',
     });
   }
 });

@@ -18,6 +18,7 @@ const {
 } = require('../lib/formFields');
 const { escapeForTextarea } = require('../lib/htmlSanitize');
 const { toDatetimeLocalInputValue, parseDatetimeLocalInput } = require('../lib/datetimeLocal');
+const { buildGateUrl, generateToken } = require('../lib/tickets');
 
 const router = express.Router();
 
@@ -329,6 +330,7 @@ async function renderEventEditPage(req, res, opts = {}) {
   const builderConfigRaw = cfg.toObject();
   const baseUrl = `${req.protocol}://${req.get('host')}`;
   const al = await adminLocals(req);
+  const gateUrl = editObj.ticketsEnabled && editObj.checkInToken ? buildGateUrl(req, editObj.checkInToken) : '';
   return res.render('admin/event-edit', {
     title: `עריכה — ${editObj.name}`,
     editEvent: editObj,
@@ -340,6 +342,7 @@ async function renderEventEditPage(req, res, opts = {}) {
     builderConfigRaw,
     eventDateInput: toDatetimeLocalInputValue(editObj.date),
     signupCloseAtInput: toDatetimeLocalInputValue(editObj.signupCloseAt),
+    gateUrl,
     ...al,
   });
 }
@@ -373,6 +376,7 @@ router.post('/events/create', requireAccountContext, async (req, res) => {
     const slugInput = (req.body.slug || '').trim();
     const isActive = req.body.isActive === 'on' || req.body.isActive === 'true';
     const signup = parseSignupFields(req.body);
+    const ticketsEnabled = req.body.ticketsEnabled === 'on' || req.body.ticketsEnabled === 'true';
 
     if (!name) return renderEventsListPage(req, res.status(400), { formError: 'שם האירוע חובה' });
 
@@ -400,6 +404,8 @@ router.post('/events/create', requireAccountContext, async (req, res) => {
       signupLimit: signup.signupLimit,
       signupLimitCountMode: signup.signupLimitCountMode,
       signupCloseAt: signup.signupCloseAt,
+      ticketsEnabled,
+      checkInToken: ticketsEnabled ? generateToken(32) : undefined,
     });
     await ensureFormConfig(event._id);
     return res.redirect(`/admin/events/${event._id}/edit`);
@@ -420,6 +426,7 @@ router.post('/events/:id/update', requireAccountContext, async (req, res) => {
     const slugInput = (req.body.slug || '').trim();
     const isActive = req.body.isActive === 'on' || req.body.isActive === 'true';
     const signup = parseSignupFields(req.body);
+    const ticketsEnabled = req.body.ticketsEnabled === 'on' || req.body.ticketsEnabled === 'true';
 
     if (!name) {
       return renderEventEditPage(req, res.status(400), { editId: req.params.id, formError: 'שם האירוע חובה' });
@@ -433,11 +440,30 @@ router.post('/events/:id/update', requireAccountContext, async (req, res) => {
     event.signupLimit = signup.signupLimit;
     event.signupLimitCountMode = signup.signupLimitCountMode;
     event.signupCloseAt = signup.signupCloseAt;
+    event.ticketsEnabled = ticketsEnabled;
+    if (ticketsEnabled && !event.checkInToken) {
+      event.checkInToken = generateToken(32);
+    }
     await event.save();
     return res.redirect(`/admin/events/${req.params.id}/edit`);
   } catch (err) {
     console.error(err);
     return renderEventEditPage(req, res.status(500), { editId: req.params.id, formError: 'שגיאה בעדכון' });
+  }
+});
+
+router.post('/events/:id/tickets/rotate', requireAccountContext, async (req, res) => {
+  try {
+    const event = await loadEventScoped(req.params.id, req.session);
+    if (!event) return res.status(404).render('error', { title: 'לא נמצא', message: 'אירוע לא קיים' });
+
+    event.ticketsEnabled = true;
+    event.checkInToken = generateToken(32);
+    await event.save();
+    return res.redirect(`/admin/events/${event._id}/edit`);
+  } catch (err) {
+    console.error(err);
+    return renderEventEditPage(req, res.status(500), { editId: req.params.id, formError: 'שגיאה ביצירת קישור סריקה' });
   }
 });
 

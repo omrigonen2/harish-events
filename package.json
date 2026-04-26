@@ -21,6 +21,7 @@
     "luxon": "*",
     "mongoose": "^9.4.1",
     "multer": "^2.1.1",
+    "qrcode": "^1.5.4",
     "sanitize-html": "^2.17.2"
   }
 }

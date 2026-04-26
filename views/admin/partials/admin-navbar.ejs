@@ -30,6 +30,7 @@
       <a class="btn btn-outline-light btn-sm" href="/admin/events">אירועים</a>
       <% if (sessionUser.role === 'superadmin') { %>
         <a class="btn btn-outline-light btn-sm" href="/admin/accounts">חשבונות</a>
+        <a class="btn btn-outline-light btn-sm" href="/admin/integrations/wasender">Wasender</a>
       <% } %>
       <form action="/admin/logout" method="post" class="d-inline">
         <button type="submit" class="btn btn-warning btn-sm">יציאה</button>

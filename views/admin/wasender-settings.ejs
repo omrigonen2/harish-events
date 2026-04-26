@@ -1,0 +1,59 @@
+<%- include('../partials/header', { title: title }) %>
+<%- include('partials/admin-navbar', { sessionUser: locals.sessionUser || {}, memberships: locals.memberships || [] }) %>
+<main class="container pb-5" style="max-width: 42rem;">
+  <h1 class="h4 mb-4">הגדרות Wasender</h1>
+
+  <% if (formError) { %>
+    <div class="alert alert-danger"><%= formError %></div>
+  <% } %>
+  <% if (formMessage) { %>
+    <div class="alert alert-success"><%= formMessage %></div>
+  <% } %>
+  <% if (statusResult) { %>
+    <% if (statusResult.ok) { %>
+      <div class="alert alert-success">החיבור תקין. סטטוס: <strong><%= statusResult.status %></strong></div>
+    <% } else { %>
+      <div class="alert alert-warning">
+        בדיקת החיבור לא תקינה.
+        <% if (statusResult.status) { %> סטטוס: <strong><%= statusResult.status %></strong>.<% } %>
+        <% if (statusResult.error) { %> שגיאה: <%= statusResult.error %><% } %>
+      </div>
+    <% } %>
+  <% } %>
+
+  <div class="card admin-card p-4 mb-4">
+    <form method="post" action="/admin/integrations/wasender">
+      <div class="mb-3">
+        <label class="form-label">Wasender API Key</label>
+        <input class="form-control" type="password" name="apiKey" autocomplete="new-password"
+               placeholder="<%= settings.apiKeyPreview ? 'מוגדר: ' + settings.apiKeyPreview : 'הדבק API key' %>">
+        <p class="small text-muted mb-0">השאר ריק כדי לשמור את המפתח הקיים. המפתח נשמר מוצפן במסד.</p>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Base URL</label>
+        <input class="form-control" name="baseUrl" dir="ltr" value="<%= settings.baseUrl || 'https://www.wasenderapi.com' %>">
+      </div>
+      <button type="submit" class="btn btn-primary">שמירת הגדרות</button>
+    </form>
+  </div>
+
+  <div class="card admin-card p-4">
+    <h2 class="h6 mb-3">בדיקת חיבור</h2>
+    <p class="text-muted small">
+      הבדיקה קוראת ל־<code>/api/status</code> ב־Wasender ולא שולחת הודעה.
+    </p>
+    <% if (settings.lastCheckedAt) { %>
+      <p class="small mb-2">
+        בדיקה אחרונה: <%= formatDateTimeIsrael(settings.lastCheckedAt) %>
+        <% if (settings.lastStatus) { %> | סטטוס: <strong><%= settings.lastStatus %></strong><% } %>
+      </p>
+    <% } %>
+    <% if (settings.lastError) { %>
+      <p class="small text-danger">שגיאה אחרונה: <%= settings.lastError %></p>
+    <% } %>
+    <form method="post" action="/admin/integrations/wasender/check">
+      <button type="submit" class="btn btn-outline-primary">בדיקת חיבור</button>
+    </form>
+  </div>
+</main>
+<%- include('../partials/footer') %>

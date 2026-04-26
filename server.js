@@ -9,6 +9,7 @@ const multer = require('multer');
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const adminAccountRoutes = require('./routes/admin-accounts');
+const ticketRoutes = require('./routes/tickets');
 const { formatDateTimeIsrael } = require('./lib/datetimeLocal');
 
 const app = express();
@@ -22,6 +23,7 @@ app.locals.formatDateTimeIsrael = formatDateTimeIsrael;
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.json({ limit: '256kb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 const mongoUrl = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/event_signup';
@@ -46,6 +48,7 @@ app.use(
 );
 
 app.use('/', publicRoutes);
+app.use('/', ticketRoutes);
 app.use('/admin', adminRoutes);
 app.use('/admin', adminAccountRoutes);
 
