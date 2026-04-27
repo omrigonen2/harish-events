@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const Event = require('../models/Event');
 const Registration = require('../models/Registration');
 const FormConfig = require('../models/FormConfig');
-const { resolveConfigUrls } = require('../lib/s3');
+const { getPresignedUrl, resolveConfigUrls } = require('../lib/s3');
 const {
   getFieldsForRender,
   getCustomFieldDefs,
@@ -19,6 +19,16 @@ const {
 const { sendTicket } = require('../lib/wasender');
 
 const router = express.Router();
+
+function isAllowedDescriptionImageKey(key) {
+  return (
+    typeof key === 'string' &&
+    key.startsWith('event-descriptions/') &&
+    !key.includes('..') &&
+    !key.includes('\\') &&
+    !key.includes('\0')
+  );
+}
 
 function hexToRgb(hex) {
   if (!hex || typeof hex !== 'string') return { r: 248, g: 249, b: 250 };
@@ -116,7 +126,8 @@ function parseCustomFieldsFromBody(body, fieldDefs) {
     if (!isCustomFieldType(def.type)) continue;
     const key = `custom_${def.id}`;
     if (def.type === 'checkbox') {
-      out[def.id] = body[key] === 'on' || body[key] === 'true' || body[key] === true;
+      const raw = Array.isArray(body[key]) ? body[key][body[key].length - 1] : body[key];
+      out[def.id] = raw === 'on' || raw === 'true' || raw === true;
     } else if (def.type === 'select') {
       const v = body[key];
       if (v !== undefined && v !== '') out[def.id] = String(v).trim();
@@ -183,6 +194,20 @@ router.get('/', (req, res) => {
 
 router.get('/events', (req, res) => {
   res.redirect('/');
+});
+
+router.get('/images/s3/:encodedKey', async (req, res) => {
+  try {
+    const key = req.params.encodedKey;
+    if (!isAllowedDescriptionImageKey(key)) {
+      return res.status(404).send('Not found');
+    }
+    const url = await getPresignedUrl(key);
+    return res.redirect(302, url);
+  } catch (err) {
+    console.error('presigned image error', err);
+    return res.status(404).send('Not found');
+  }
 });
 
 router.get('/register/:eventId', async (req, res) => {

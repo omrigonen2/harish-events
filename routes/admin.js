@@ -93,6 +93,10 @@ function parseFormConfigBody(body) {
   };
 }
 
+function stableS3ImageUrl(key) {
+  return `/images/s3/${encodeURIComponent(key)}`;
+}
+
 async function ensureFormConfig(eventId) {
   let cfg = await FormConfig.findOne({ eventId });
   if (!cfg) {
@@ -270,8 +274,9 @@ async function adminLocals(req) {
 router.post('/upload-image', requireLogin, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'לא נבחרה תמונה' });
-    const key = await uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype);
-    return res.json({ key });
+    const folder = req.body.purpose === 'event-description' ? 'event-descriptions' : 'uploads';
+    const key = await uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype, folder);
+    return res.json({ key, location: stableS3ImageUrl(key) });
   } catch (err) {
     console.error('upload-image error', err);
     return res.status(500).json({ error: err.message || 'שגיאת שרת' });

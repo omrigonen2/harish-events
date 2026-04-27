@@ -19,6 +19,7 @@ const formFieldSchema = new mongoose.Schema(
     },
     label: { type: String, required: true, trim: true },
     required: { type: Boolean, default: false },
+    checkedByDefault: { type: Boolean, default: false },
     order: { type: Number, default: 0 },
     options: { type: [String], default: [] },
     childNameLabel: { type: String, default: 'שם הילד/ה' },
