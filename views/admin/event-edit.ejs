@@ -88,10 +88,7 @@
                   onclick="navigator.clipboard && navigator.clipboard.writeText(document.getElementById('gateUrl').value)">העתקה</button>
               </div>
               <p class="small text-muted mb-2">זהו קישור ללא התחברות. שתפו רק עם מי שמנהל כניסה לאירוע.</p>
-              <form method="post" action="/admin/events/<%= editEvent._id %>/tickets/rotate"
-                    onsubmit="return confirm('ליצור קישור סריקה חדש? הקישור הישן יפסיק לעבוד.');">
-                <button type="submit" class="btn btn-outline-danger btn-sm">יצירת קישור חדש</button>
-              </form>
+              <button type="submit" form="rotateTicketLinkForm" class="btn btn-outline-danger btn-sm">יצירת קישור חדש</button>
             </div>
           <% } %>
 
@@ -100,6 +97,10 @@
             <a href="/admin/events" class="btn btn-outline-secondary">חזרה לרשימת האירועים</a>
           </div>
         </form>
+        <% if (editEvent.ticketsEnabled && typeof gateUrl !== 'undefined' && gateUrl) { %>
+          <form id="rotateTicketLinkForm" method="post" action="/admin/events/<%= editEvent._id %>/tickets/rotate"
+                onsubmit="return confirm('ליצור קישור סריקה חדש? הקישור הישן יפסיק לעבוד.');"></form>
+        <% } %>
       </div>
 
       <% if (builderConfig) { %>
