@@ -19,6 +19,7 @@ const registrationSchema = new mongoose.Schema(
     parentFirstName: { type: String, default: '', trim: true },
     parentLastName: { type: String, default: '', trim: true },
     phone: { type: String, default: '', trim: true },
+    phoneNormalized: { type: String, default: '', trim: true, index: true },
     children: { type: [childSchema], default: [] },
     customFields: { type: mongoose.Schema.Types.Mixed, default: {} },
     ticketToken: { type: String, trim: true },

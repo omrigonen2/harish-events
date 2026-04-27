@@ -16,7 +16,7 @@ const {
   buildTicketUrl,
   ensureEventCheckInToken,
 } = require('../lib/tickets');
-const { sendTicket } = require('../lib/wasender');
+const { normalizePhone, sendTicket } = require('../lib/wasender');
 
 const router = express.Router();
 
@@ -162,6 +162,23 @@ function validateSubmission(fieldDefs, parentFirstName, parentLastName, phone, c
   return errors;
 }
 
+async function phoneAlreadyRegistered(eventId, phoneNormalized) {
+  if (!phoneNormalized) return false;
+  const direct = await Registration.findOne({ eventId, phoneNormalized }).select('_id').lean();
+  if (direct) return true;
+
+  // Legacy registrations created before phoneNormalized existed are checked lazily.
+  const legacy = await Registration.find({
+    eventId,
+    $or: [
+      { phoneNormalized: { $exists: false } },
+      { phoneNormalized: '' },
+      { phoneNormalized: null },
+    ],
+  }).select('_id phone').lean();
+  return legacy.some((registration) => normalizePhone(registration.phone) === phoneNormalized);
+}
+
 async function renderRegistrationForm(res, status, { event, formErrors = [], oldBody = {}, childRows, configDoc }) {
   const rows = childRows || [{ name: '', age: '' }];
   const cfg = configDoc !== undefined ? configDoc : await FormConfig.findOne({ eventId: event._id }).lean();
@@ -255,6 +272,7 @@ router.post('/register/:eventId', async (req, res) => {
     const parentFirstName = (req.body.parentFirstName || '').trim();
     const parentLastName = (req.body.parentLastName || '').trim();
     const phone = (req.body.phone || '').trim();
+    const phoneNormalized = normalizePhone(phone);
     const childrenRaw = parseChildrenFromBody(req.body);
     const children = normalizeChildren(childrenRaw);
     const customFields = parseCustomFieldsFromBody(req.body, customDefsOnly);
@@ -278,6 +296,19 @@ router.post('/register/:eventId', async (req, res) => {
       });
     }
 
+    if (event.signupPhoneUnique && phoneNormalized) {
+      const duplicatePhone = await phoneAlreadyRegistered(event._id, phoneNormalized);
+      if (duplicatePhone) {
+        return renderRegistrationForm(res, 400, {
+          event,
+          configDoc,
+          formErrors: ['מספר הטלפון כבר רשום לאירוע זה. אם כבר נרשמת, אין צורך להירשם שוב.'],
+          oldBody: req.body,
+          childRows: childRowsFromOld(req.body),
+        });
+      }
+    }
+
     const closedAgain = await getSignupAvailability(event);
     if (!closedAgain.open) {
       return renderRegistrationForm(res, 403, {
@@ -293,6 +324,7 @@ router.post('/register/:eventId', async (req, res) => {
       parentFirstName,
       parentLastName,
       phone,
+      phoneNormalized,
       children,
       customFields,
     });

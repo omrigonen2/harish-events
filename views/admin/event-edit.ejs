@@ -65,6 +65,12 @@
               value="<%= typeof signupCloseAtInput !== 'undefined' ? signupCloseAtInput : '' %>">
             <p class="small text-muted mb-0">ריק = ההרשמה לא נסגרת לפי זמן (רק לפי מכסה / כיבוי אירוע).</p>
           </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="signupPhoneUnique" id="signupPhoneUnique"
+              <%= editEvent.signupPhoneUnique ? 'checked' : '' %>>
+            <label class="form-check-label" for="signupPhoneUnique">לאפשר הרשמה אחת בלבד לכל מספר טלפון</label>
+            <p class="small text-muted mb-0">כאשר האפשרות פעילה, ניסיון הרשמה נוסף עם אותו מספר יקבל הודעת שגיאה.</p>
+          </div>
 
           <hr class="my-4">
           <h3 class="h6">כרטיסים וכניסה</h3>

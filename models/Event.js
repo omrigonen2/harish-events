@@ -19,6 +19,8 @@ const eventSchema = new mongoose.Schema(
     signupLimitCountMode: { type: String, enum: ['families', 'participants', 'children'], default: 'families' },
     /** when reached, public form shows closed (Israel local time in admin UI) */
     signupCloseAt: { type: Date, default: null },
+    /** Block more than one registration with the same normalized phone for this event */
+    signupPhoneUnique: { type: Boolean, default: false },
     /** Optional WhatsApp ticket with QR check-in */
     ticketsEnabled: { type: Boolean, default: false },
     /** Allow gate staff to adjust admitted adults/children before check-in */

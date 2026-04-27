@@ -68,7 +68,8 @@ function parseSignupFields(body) {
   if (body.signupLimitCountMode === 'participants') signupLimitCountMode = 'participants';
   else if (body.signupLimitCountMode === 'children') signupLimitCountMode = 'children';
   const signupCloseAt = parseDatetimeLocalInput(body.signupCloseAt || '');
-  return { signupLimit, signupLimitCountMode, signupCloseAt };
+  const signupPhoneUnique = body.signupPhoneUnique === 'on' || body.signupPhoneUnique === 'true';
+  return { signupLimit, signupLimitCountMode, signupCloseAt, signupPhoneUnique };
 }
 
 function parseFormConfigBody(body) {
@@ -411,6 +412,7 @@ router.post('/events/create', requireAccountContext, async (req, res) => {
       signupLimit: signup.signupLimit,
       signupLimitCountMode: signup.signupLimitCountMode,
       signupCloseAt: signup.signupCloseAt,
+      signupPhoneUnique: signup.signupPhoneUnique,
       ticketsEnabled,
       ticketsGateAllowCountEdit,
       checkInToken: ticketsEnabled ? generateToken(32) : undefined,
@@ -450,6 +452,7 @@ router.post('/events/:id/update', requireAccountContext, async (req, res) => {
     event.signupLimit = signup.signupLimit;
     event.signupLimitCountMode = signup.signupLimitCountMode;
     event.signupCloseAt = signup.signupCloseAt;
+    event.signupPhoneUnique = signup.signupPhoneUnique;
     event.ticketsEnabled = ticketsEnabled;
     event.ticketsGateAllowCountEdit = ticketsGateAllowCountEdit;
     if (ticketsEnabled && !event.checkInToken) {
