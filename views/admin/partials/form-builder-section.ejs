@@ -170,6 +170,7 @@
       type: f.type || 'text',
       label: f.label || '',
       required: !!f.required,
+      checkedByDefault: !!f.checkedByDefault,
       order: typeof f.order === 'number' ? f.order : i,
       options: f.options || [],
       childNameLabel: f.childNameLabel || 'שם הילד/ה',
@@ -210,6 +211,7 @@
         type: type,
         label: row.querySelector('.fld-label').value.trim(),
         required: row.querySelector('.fld-required').checked,
+        checkedByDefault: type === 'checkbox' ? row.querySelector('.fld-checked-default').checked : false,
         order: idx,
         options: options,
       };
@@ -227,8 +229,10 @@
     var t = row.querySelector('.fld-type').value;
     var optWrap = row.querySelector('.fld-options-wrap');
     var childWrap = row.querySelector('.fld-child-wrap');
+    var checkboxWrap = row.querySelector('.fld-checkbox-wrap');
     if (optWrap) optWrap.style.display = t === 'select' ? 'block' : 'none';
     if (childWrap) childWrap.style.display = t === 'children' ? 'block' : 'none';
+    if (checkboxWrap) checkboxWrap.style.display = t === 'checkbox' ? 'block' : 'none';
   }
 
   function addFieldRow(data) {
@@ -262,11 +266,18 @@
       '<div class="fld-options-wrap mt-2" style="display:none">' +
         '<label class="small text-muted">אפשרות לכל שורה (רשימה נפתחת)</label>' +
         '<textarea class="form-control form-control-sm fld-options" rows="3" placeholder="שורה לכל אפשרות"></textarea>' +
+      '</div>' +
+      '<div class="fld-checkbox-wrap mt-2" style="display:none">' +
+        '<div class="form-check">' +
+          '<input class="form-check-input fld-checked-default" type="checkbox" id="default_' + data.id + '">' +
+          '<label class="form-check-label small" for="default_' + data.id + '">מסומן כברירת מחדל</label>' +
+        '</div>' +
       '</div>';
 
     row.querySelector('.fld-type').value = data.type || 'text';
     row.querySelector('.fld-label').value = data.label || '';
     row.querySelector('.fld-required').checked = !!data.required;
+    row.querySelector('.fld-checked-default').checked = !!data.checkedByDefault;
     var optTa = row.querySelector('.fld-options');
     if (data.type === 'select') { optTa.value = (data.options || []).join('\n'); }
     var cn = row.querySelector('.fld-child-name');
