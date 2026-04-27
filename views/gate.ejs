@@ -7,6 +7,38 @@
     <div id="reader" class="border rounded overflow-hidden bg-white mb-3"></div>
     <div id="scan-result" class="alert alert-secondary mb-3">מוכן לסריקה.</div>
 
+    <div id="ticket-preview" class="card border-primary mb-3 d-none">
+      <div class="card-body">
+        <h2 class="h6 mb-3">פרטי הכרטיס</h2>
+        <dl class="row mb-3">
+          <dt class="col-5">שם</dt>
+          <dd class="col-7 mb-2" id="preview-name">—</dd>
+          <dt class="col-5">מבוגרים</dt>
+          <dd class="col-7 mb-2" id="preview-adults">—</dd>
+          <dt class="col-5">ילדים</dt>
+          <dd class="col-7 mb-2" id="preview-children">—</dd>
+          <dt class="col-5">סטטוס</dt>
+          <dd class="col-7 mb-0" id="preview-status">—</dd>
+        </dl>
+
+        <div id="count-edit" class="row g-2 mb-3 d-none">
+          <div class="col-6">
+            <label class="form-label small" for="adults-count">מבוגרים בכניסה</label>
+            <input class="form-control" type="number" id="adults-count" min="1" max="50" step="1">
+          </div>
+          <div class="col-6">
+            <label class="form-label small" for="children-count">ילדים בכניסה</label>
+            <input class="form-control" type="number" id="children-count" min="0" max="50" step="1">
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+          <button id="burn-ticket" type="button" class="btn btn-success">אישור וצריבת הכרטיס</button>
+          <button id="reset-scan" type="button" class="btn btn-outline-secondary">סריקה חדשה</button>
+        </div>
+      </div>
+    </div>
+
     <form id="manual-form" class="input-group">
       <input class="form-control" id="manual-ticket" placeholder="הדבק קישור / קוד כרטיס ידנית">
       <button class="btn btn-primary" type="submit">אישור</button>
@@ -19,47 +51,146 @@
     const resultBox = document.getElementById('scan-result');
     const manualForm = document.getElementById('manual-form');
     const manualInput = document.getElementById('manual-ticket');
+    const previewCard = document.getElementById('ticket-preview');
+    const previewName = document.getElementById('preview-name');
+    const previewAdults = document.getElementById('preview-adults');
+    const previewChildren = document.getElementById('preview-children');
+    const previewStatus = document.getElementById('preview-status');
+    const countEdit = document.getElementById('count-edit');
+    const adultsInput = document.getElementById('adults-count');
+    const childrenInput = document.getElementById('children-count');
+    const burnButton = document.getElementById('burn-ticket');
+    const resetButton = document.getElementById('reset-scan');
     let busy = false;
+    let currentScannedValue = '';
+    let currentAllowCountEdit = false;
 
     function setResult(type, message, holder) {
       resultBox.className = 'alert alert-' + type + ' mb-3';
       resultBox.textContent = holder ? message + ' — ' + holder : message;
     }
 
-    async function redeem(value) {
-      if (busy || !value) return;
+    function resetPreview() {
+      currentScannedValue = '';
+      currentAllowCountEdit = false;
+      previewCard.classList.add('d-none');
+      countEdit.classList.add('d-none');
+      burnButton.disabled = false;
+      previewName.textContent = '—';
+      previewAdults.textContent = '—';
+      previewChildren.textContent = '—';
+      previewStatus.textContent = '—';
+      adultsInput.value = '';
+      childrenInput.value = '';
+      setResult('secondary', 'מוכן לסריקה.');
+    }
+
+    function showPreview(payload, scannedValue) {
+      const holder = payload.holderSummary || {};
+      const counts = payload.counts || {};
+      currentScannedValue = scannedValue;
+      currentAllowCountEdit = Boolean(payload.allowCountEdit);
+
+      previewName.textContent = holder.name || 'ללא שם';
+      previewAdults.textContent = counts.adults != null ? counts.adults : '—';
+      previewChildren.textContent = counts.children != null ? counts.children : '—';
+      if (payload.status === 'checked_in') {
+        previewStatus.textContent = 'אושר עכשיו';
+      } else {
+        previewStatus.textContent = payload.alreadyCheckedIn ? 'כבר אושר בעבר' : 'ממתין לאישור';
+      }
+      adultsInput.value = counts.adults != null ? counts.adults : 1;
+      childrenInput.value = counts.children != null ? counts.children : 0;
+      burnButton.disabled = Boolean(payload.alreadyCheckedIn);
+
+      if (currentAllowCountEdit && !payload.alreadyCheckedIn) {
+        countEdit.classList.remove('d-none');
+      } else {
+        countEdit.classList.add('d-none');
+      }
+      previewCard.classList.remove('d-none');
+    }
+
+    async function preview(value) {
+      const scannedValue = (value || '').trim();
+      if (busy || !scannedValue) return;
+      if (currentScannedValue && scannedValue === currentScannedValue) return;
       busy = true;
       setResult('secondary', 'בודק כרטיס...');
       try {
-        const response = await fetch('/gate/<%= encodeURIComponent(checkInToken) %>/redeem', {
+        const response = await fetch('/gate/<%= encodeURIComponent(checkInToken) %>/preview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ticketToken: value }),
+          body: JSON.stringify({ ticketToken: scannedValue }),
         });
         const payload = await response.json();
         const holder = payload.holderSummary ? payload.holderSummary.name : '';
-        if (payload.ok && payload.status === 'checked_in') setResult('success', payload.message, holder);
-        else if (payload.ok) setResult('warning', payload.message, holder);
-        else setResult('danger', payload.message || 'הכרטיס לא תקין');
+        if (payload.ok) {
+          showPreview(payload, scannedValue);
+          setResult(payload.alreadyCheckedIn ? 'warning' : 'info', payload.message, holder);
+        } else {
+          resetPreview();
+          setResult('danger', payload.message || 'הכרטיס לא תקין');
+        }
       } catch (err) {
         setResult('danger', 'שגיאת תקשורת');
       } finally {
-        setTimeout(function () { busy = false; }, 1200);
+        setTimeout(function () { busy = false; }, 900);
+      }
+    }
+
+    async function redeemCurrent() {
+      if (busy || !currentScannedValue) return;
+      busy = true;
+      burnButton.disabled = true;
+      setResult('secondary', 'מאשר וצורב כרטיס...');
+      try {
+        const body = { ticketToken: currentScannedValue };
+        if (currentAllowCountEdit) {
+          body.adults = adultsInput.value;
+          body.children = childrenInput.value;
+        }
+        const response = await fetch('/gate/<%= encodeURIComponent(checkInToken) %>/redeem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const payload = await response.json();
+        const holder = payload.holderSummary ? payload.holderSummary.name : '';
+        if (payload.ok && payload.status === 'checked_in') {
+          showPreview(payload, currentScannedValue);
+          burnButton.disabled = true;
+          setResult('success', payload.message, holder);
+        } else if (payload.ok) {
+          showPreview(payload, currentScannedValue);
+          setResult('warning', payload.message, holder);
+        } else {
+          burnButton.disabled = false;
+          setResult('danger', payload.message || 'הכרטיס לא תקין');
+        }
+      } catch (err) {
+        burnButton.disabled = false;
+        setResult('danger', 'שגיאת תקשורת');
+      } finally {
+        setTimeout(function () { busy = false; }, 900);
       }
     }
 
     manualForm.addEventListener('submit', function (event) {
       event.preventDefault();
-      redeem(manualInput.value.trim());
+      preview(manualInput.value.trim());
       manualInput.value = '';
     });
+
+    burnButton.addEventListener('click', redeemCurrent);
+    resetButton.addEventListener('click', resetPreview);
 
     if (window.Html5Qrcode) {
       const scanner = new Html5Qrcode('reader');
       scanner.start(
         { facingMode: 'environment' },
         { fps: 10, qrbox: { width: 260, height: 260 } },
-        redeem
+        preview
       ).catch(function () {
         setResult('warning', 'לא ניתן לפתוח מצלמה. אפשר להדביק את קוד הכרטיס ידנית.');
       });

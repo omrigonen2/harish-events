@@ -53,6 +53,11 @@
               <td class="text-nowrap">
                 <% if (r.ticketCheckedInAt) { %>
                   אושר: <%= formatDateTimeIsrael(r.ticketCheckedInAt) %>
+                  <% var admittedAdults = r.ticketCheckInAdults != null ? r.ticketCheckInAdults : 1; %>
+                  <% var admittedChildren = r.ticketCheckInChildren != null ? r.ticketCheckInChildren : (r.children || []).length; %>
+                  <div class="small text-muted">
+                    כניסה: <%= admittedAdults %> מבוגרים, <%= admittedChildren %> ילדים
+                  </div>
                 <% } else if (r.ticketToken) { %>
                   נשלח / ממתין
                 <% } else { %>

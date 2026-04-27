@@ -4,6 +4,7 @@ const Registration = require('../models/Registration');
 const {
   buildTicketQrPngBuffer,
   buildTicketUrl,
+  previewTicket,
   redeemTicket,
 } = require('../lib/tickets');
 
@@ -39,8 +40,7 @@ router.get('/ticket/:ticketToken/qr.png', async (req, res) => {
     const registration = await Registration.findOne({ ticketToken: req.params.ticketToken }).select('_id ticketToken').lean();
     if (!registration) return res.status(404).send('Not found');
 
-    const ticketUrl = buildTicketUrl(req, registration.ticketToken);
-    const png = await buildTicketQrPngBuffer(ticketUrl);
+    const png = await buildTicketQrPngBuffer(registration.ticketToken);
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'private, max-age=300');
     return res.send(png);
@@ -68,10 +68,24 @@ router.get('/gate/:checkInToken', async (req, res) => {
   }
 });
 
+router.post('/gate/:checkInToken/preview', async (req, res) => {
+  try {
+    const scanned = req.body.ticketToken || req.body.value || req.body.scanned || '';
+    const result = await previewTicket(req.params.checkInToken, scanned);
+    return res.status(result.ok ? 200 : 400).json(result);
+  } catch (err) {
+    console.error('ticket preview error', err);
+    return res.status(500).json({ ok: false, status: 'error', message: 'שגיאת שרת' });
+  }
+});
+
 router.post('/gate/:checkInToken/redeem', async (req, res) => {
   try {
     const scanned = req.body.ticketToken || req.body.value || req.body.scanned || '';
-    const result = await redeemTicket(req.params.checkInToken, scanned);
+    const result = await redeemTicket(req.params.checkInToken, scanned, {
+      adults: req.body.adults,
+      children: req.body.children,
+    });
     return res.status(result.ok ? 200 : 400).json(result);
   } catch (err) {
     console.error('ticket redeem error', err);

@@ -21,6 +21,8 @@ const eventSchema = new mongoose.Schema(
     signupCloseAt: { type: Date, default: null },
     /** Optional WhatsApp ticket with QR check-in */
     ticketsEnabled: { type: Boolean, default: false },
+    /** Allow gate staff to adjust admitted adults/children before check-in */
+    ticketsGateAllowCountEdit: { type: Boolean, default: false },
     /** Secret staff check-in link token; generated when ticketing is enabled */
     checkInToken: { type: String, trim: true },
   },

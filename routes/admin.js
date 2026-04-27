@@ -377,6 +377,8 @@ router.post('/events/create', requireAccountContext, async (req, res) => {
     const isActive = req.body.isActive === 'on' || req.body.isActive === 'true';
     const signup = parseSignupFields(req.body);
     const ticketsEnabled = req.body.ticketsEnabled === 'on' || req.body.ticketsEnabled === 'true';
+    const ticketsGateAllowCountEdit =
+      ticketsEnabled && (req.body.ticketsGateAllowCountEdit === 'on' || req.body.ticketsGateAllowCountEdit === 'true');
 
     if (!name) return renderEventsListPage(req, res.status(400), { formError: 'שם האירוע חובה' });
 
@@ -405,6 +407,7 @@ router.post('/events/create', requireAccountContext, async (req, res) => {
       signupLimitCountMode: signup.signupLimitCountMode,
       signupCloseAt: signup.signupCloseAt,
       ticketsEnabled,
+      ticketsGateAllowCountEdit,
       checkInToken: ticketsEnabled ? generateToken(32) : undefined,
     });
     await ensureFormConfig(event._id);
@@ -427,6 +430,8 @@ router.post('/events/:id/update', requireAccountContext, async (req, res) => {
     const isActive = req.body.isActive === 'on' || req.body.isActive === 'true';
     const signup = parseSignupFields(req.body);
     const ticketsEnabled = req.body.ticketsEnabled === 'on' || req.body.ticketsEnabled === 'true';
+    const ticketsGateAllowCountEdit =
+      ticketsEnabled && (req.body.ticketsGateAllowCountEdit === 'on' || req.body.ticketsGateAllowCountEdit === 'true');
 
     if (!name) {
       return renderEventEditPage(req, res.status(400), { editId: req.params.id, formError: 'שם האירוע חובה' });
@@ -441,6 +446,7 @@ router.post('/events/:id/update', requireAccountContext, async (req, res) => {
     event.signupLimitCountMode = signup.signupLimitCountMode;
     event.signupCloseAt = signup.signupCloseAt;
     event.ticketsEnabled = ticketsEnabled;
+    event.ticketsGateAllowCountEdit = ticketsGateAllowCountEdit;
     if (ticketsEnabled && !event.checkInToken) {
       event.checkInToken = generateToken(32);
     }

@@ -23,6 +23,8 @@ const registrationSchema = new mongoose.Schema(
     customFields: { type: mongoose.Schema.Types.Mixed, default: {} },
     ticketToken: { type: String, trim: true },
     ticketCheckedInAt: { type: Date, default: null },
+    ticketCheckInAdults: { type: Number, min: 0, default: null },
+    ticketCheckInChildren: { type: Number, min: 0, default: null },
     ticketWhatsAppSentAt: { type: Date, default: null },
     ticketWhatsAppError: { type: String, default: '', trim: true },
   },

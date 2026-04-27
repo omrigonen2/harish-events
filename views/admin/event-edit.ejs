@@ -73,6 +73,12 @@
               <%= editEvent.ticketsEnabled ? 'checked' : '' %>>
             <label class="form-check-label" for="ticketsEnabled">שליחת כרטיס בוואטסאפ עם QR</label>
           </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="ticketsGateAllowCountEdit" id="ticketsGateAllowCountEdit"
+              <%= editEvent.ticketsGateAllowCountEdit ? 'checked' : '' %>>
+            <label class="form-check-label" for="ticketsGateAllowCountEdit">לאפשר לצוות הסריקה לשנות כמות מבוגרים וילדים לפני צריבת הכרטיס</label>
+            <p class="small text-muted mb-0">כאשר האפשרות כבויה, הסריקה מציגה את הכמות המקורית והאישור צורב אותה ללא שינוי.</p>
+          </div>
           <% if (editEvent.ticketsEnabled && typeof gateUrl !== 'undefined' && gateUrl) { %>
             <div class="mb-3">
               <label class="form-label">קישור סריקה לצוות האירוע</label>
