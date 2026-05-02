@@ -16,6 +16,12 @@
   <% if (formMessage) { %>
     <div class="alert alert-success"><%= formMessage %></div>
   <% } %>
+  <% if (testError) { %>
+    <div class="alert alert-danger"><%= testError %></div>
+  <% } %>
+  <% if (testMessage) { %>
+    <div class="alert alert-success"><%= testMessage %></div>
+  <% } %>
 
   <div class="card admin-card p-4 mb-4">
     <h2 class="h5 mb-3">הודעה חדשה לנרשמים</h2>
@@ -43,7 +49,52 @@
         <input type="hidden" name="imageKey" value="">
         <p class="small text-muted mb-0">אם מצורפת תמונה, היא תישלח עם כל הודעה דרך Wasender.</p>
       </div>
-      <button type="submit" class="btn btn-primary">התחלת שליחה</button>
+      <div class="mb-3">
+        <label class="form-label">מועד שליחה (אופציונלי)</label>
+        <input class="form-control" type="datetime-local" name="scheduledAt">
+        <p class="small text-muted mb-0">ריק = שליחה מיידית. מועד עתידי ישמור את הנמענים עכשיו ויתחיל שליחה בזמן שנבחר.</p>
+      </div>
+      <button type="submit" class="btn btn-primary">התחלת / תזמון שליחה</button>
+    </form>
+  </div>
+
+  <div class="card admin-card p-4 mb-4">
+    <h2 class="h5 mb-3">שליחת הודעת בדיקה</h2>
+    <form method="post" action="/admin/events/<%= event._id %>/messaging/test" enctype="multipart/form-data">
+      <div class="mb-3">
+        <label class="form-label">מספר טלפון לבדיקה *</label>
+        <input class="form-control" name="testPhone" dir="ltr" required placeholder="0501234567">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">נרשם לדוגמה עבור משתנים (אופציונלי)</label>
+        <select class="form-select" name="testRegistrationId">
+          <option value="">ערכי דוגמה ללא נרשם</option>
+          <% (registrations || []).forEach(function(registration) { %>
+            <option value="<%= registration._id %>">
+              <%= registration.parentFirstName %> <%= registration.parentLastName %>
+              <% if (registration.phone) { %> — <%= registration.phone %><% } %>
+            </option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">תוכן הודעת הבדיקה *</label>
+        <textarea class="form-control" name="messageText" rows="7" required></textarea>
+        <p class="small text-muted mt-2 mb-0">
+          אותם משתנים נתמכים:
+          <code dir="ltr">{{parentFirstName}}</code>,
+          <code dir="ltr">{{parentLastName}}</code>,
+          <code dir="ltr">{{eventName}}</code>,
+          <code dir="ltr">{{eventDate}}</code>,
+          <code dir="ltr">{{ticketUrl}}</code>
+        </p>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">תמונה מצורפת לבדיקה (אופציונלי)</label>
+        <input class="form-control" type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml">
+        <input type="hidden" name="imageKey" value="">
+      </div>
+      <button type="submit" class="btn btn-outline-primary">שליחת בדיקה</button>
     </form>
   </div>
 
@@ -58,6 +109,7 @@
             <tr>
               <th>שם</th>
               <th>סטטוס</th>
+              <th>תזמון</th>
               <th class="text-center">נמענים</th>
               <th class="text-center">נשלחו</th>
               <th class="text-center">נכשלו</th>
@@ -69,7 +121,12 @@
             <% campaigns.forEach(function(campaign) { %>
               <tr>
                 <td><%= campaign.name || 'ללא שם' %></td>
-                <td><span class="badge text-bg-secondary"><%= campaign.status %></span></td>
+                <td>
+                  <span class="badge text-bg-secondary">
+                    <%= campaign.status === 'queued' && campaign.scheduledAt ? 'scheduled' : campaign.status %>
+                  </span>
+                </td>
+                <td class="text-nowrap"><%= campaign.scheduledAt ? formatDateTimeIsrael(campaign.scheduledAt) : 'מיידי' %></td>
                 <td class="text-center"><%= campaign.totalRecipients || 0 %></td>
                 <td class="text-center"><%= campaign.sentCount || 0 %></td>
                 <td class="text-center"><%= campaign.failedCount || 0 %></td>

@@ -1,17 +1,19 @@
 const express = require('express');
 const multer = require('multer');
 const Event = require('../models/Event');
-const Account = require('../models/Account');
 const AccountMembership = require('../models/AccountMembership');
 const MessageCampaign = require('../models/MessageCampaign');
+const Registration = require('../models/Registration');
 const { requireAccountContext } = require('../middleware/auth');
 const { uploadFile } = require('../lib/s3');
+const { parseDatetimeLocalInput } = require('../lib/datetimeLocal');
 const {
   cancelCampaign,
   createCampaign,
   getCampaignStatus,
   pauseCampaign,
   resumeCampaign,
+  sendTestMessage,
 } = require('../lib/messageQueue');
 
 const router = express.Router();
@@ -62,21 +64,39 @@ function redirectToCampaign(eventId, campaignId) {
   return `/admin/events/${eventId}/messaging/campaigns/${campaignId}`;
 }
 
+function publicBaseUrl(req) {
+  return (process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+}
+
+async function renderMessagingPage(req, res, eventDoc, opts = {}) {
+  const [campaigns, registrations, al] = await Promise.all([
+    MessageCampaign.find({ eventId: eventDoc._id }).sort({ createdAt: -1 }).lean(),
+    Registration.find({ eventId: eventDoc._id })
+      .select('parentFirstName parentLastName phone createdAt')
+      .sort({ createdAt: -1 })
+      .lean(),
+    adminLocals(req),
+  ]);
+
+  return res.status(opts.status || 200).render('admin/messaging', {
+    title: `שליחת הודעות — ${eventDoc.name}`,
+    event: eventDoc.toObject(),
+    campaigns,
+    registrations,
+    formError: opts.formError || null,
+    formMessage: opts.formMessage || null,
+    testError: opts.testError || null,
+    testMessage: opts.testMessage || null,
+    ...al,
+  });
+}
+
 router.get('/admin/events/:id/messaging', requireAccountContext, async (req, res) => {
   try {
     const eventDoc = await loadEventScoped(req.params.id, req.session);
     if (!eventDoc) return res.status(404).render('error', { title: 'לא נמצא', message: 'אירוע לא קיים' });
 
-    const campaigns = await MessageCampaign.find({ eventId: eventDoc._id }).sort({ createdAt: -1 }).lean();
-    const al = await adminLocals(req);
-    return res.render('admin/messaging', {
-      title: `שליחת הודעות — ${eventDoc.name}`,
-      event: eventDoc.toObject(),
-      campaigns,
-      formError: null,
-      formMessage: null,
-      ...al,
-    });
+    return renderMessagingPage(req, res, eventDoc);
   } catch (err) {
     console.error('messaging page error', err);
     return res.status(500).render('error', { title: 'שגיאה', message: 'שגיאת שרת' });
@@ -90,16 +110,7 @@ router.post('/admin/events/:id/messaging/start', requireAccountContext, upload.s
 
     const messageText = (req.body.messageText || '').trim();
     if (!messageText) {
-      const campaigns = await MessageCampaign.find({ eventId: eventDoc._id }).sort({ createdAt: -1 }).lean();
-      const al = await adminLocals(req);
-      return res.status(400).render('admin/messaging', {
-        title: `שליחת הודעות — ${eventDoc.name}`,
-        event: eventDoc.toObject(),
-        campaigns,
-        formError: 'תוכן ההודעה חובה',
-        formMessage: null,
-        ...al,
-      });
+      return renderMessagingPage(req, res, eventDoc, { status: 400, formError: 'תוכן ההודעה חובה' });
     }
 
     let imageKey = (req.body.imageKey || '').trim();
@@ -114,7 +125,8 @@ router.post('/admin/events/:id/messaging/start', requireAccountContext, upload.s
       messageText,
       imageKey,
       name: (req.body.name || '').trim(),
-      publicBaseUrl: (process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, ''),
+      publicBaseUrl: publicBaseUrl(req),
+      scheduledAt: parseDatetimeLocalInput(req.body.scheduledAt || ''),
     });
 
     return res.redirect(redirectToCampaign(eventDoc._id, campaign._id));
@@ -122,15 +134,40 @@ router.post('/admin/events/:id/messaging/start', requireAccountContext, upload.s
     console.error('messaging start error', err);
     const eventDoc = await loadEventScoped(req.params.id, req.session).catch(() => null);
     if (!eventDoc) return res.status(500).render('error', { title: 'שגיאה', message: err.message || 'שגיאת שרת' });
-    const campaigns = await MessageCampaign.find({ eventId: eventDoc._id }).sort({ createdAt: -1 }).lean();
-    const al = await adminLocals(req);
-    return res.status(500).render('admin/messaging', {
-      title: `שליחת הודעות — ${eventDoc.name}`,
-      event: eventDoc.toObject(),
-      campaigns,
+    return renderMessagingPage(req, res, eventDoc, {
+      status: 500,
       formError: err.message || 'לא ניתן להתחיל שליחה',
-      formMessage: null,
-      ...al,
+    });
+  }
+});
+
+router.post('/admin/events/:id/messaging/test', requireAccountContext, upload.single('image'), async (req, res) => {
+  try {
+    const eventDoc = await loadEventScoped(req.params.id, req.session);
+    if (!eventDoc) return res.status(404).render('error', { title: 'לא נמצא', message: 'אירוע לא קיים' });
+
+    let imageKey = (req.body.imageKey || '').trim();
+    if (req.file) {
+      imageKey = await uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype, 'message-images');
+    }
+
+    await sendTestMessage({
+      event: eventDoc,
+      registrationId: (req.body.testRegistrationId || '').trim(),
+      to: (req.body.testPhone || '').trim(),
+      messageText: (req.body.messageText || '').trim(),
+      imageKey,
+      publicBaseUrl: publicBaseUrl(req),
+    });
+
+    return renderMessagingPage(req, res, eventDoc, { testMessage: 'הודעת הבדיקה נשלחה.' });
+  } catch (err) {
+    console.error('messaging test error', err);
+    const eventDoc = await loadEventScoped(req.params.id, req.session).catch(() => null);
+    if (!eventDoc) return res.status(500).render('error', { title: 'שגיאה', message: err.message || 'שגיאת שרת' });
+    return renderMessagingPage(req, res, eventDoc, {
+      status: 400,
+      testError: err.message || 'שליחת הודעת הבדיקה נכשלה',
     });
   }
 });

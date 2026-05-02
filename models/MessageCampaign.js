@@ -18,6 +18,7 @@ const messageCampaignSchema = new mongoose.Schema(
     messageText: { type: String, required: true, trim: true },
     imageKey: { type: String, default: '', trim: true },
     publicBaseUrl: { type: String, default: '', trim: true },
+    scheduledAt: { type: Date, default: null, index: true },
     status: {
       type: String,
       enum: ['queued', 'running', 'paused', 'completed', 'cancelled'],
@@ -43,5 +44,6 @@ const messageCampaignSchema = new mongoose.Schema(
 
 messageCampaignSchema.index({ eventId: 1, createdAt: -1 });
 messageCampaignSchema.index({ status: 1, createdAt: 1 });
+messageCampaignSchema.index({ status: 1, scheduledAt: 1, createdAt: 1 });
 
 module.exports = mongoose.model('MessageCampaign', messageCampaignSchema);

@@ -183,6 +183,9 @@
   var form = document.getElementById('form-builder-form');
 
   function uid() { return 'f_' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
+  function validFieldId(id) {
+    return typeof id === 'string' && id.trim() && id !== 'undefined' && id !== 'null' && id !== '[object Object]';
+  }
 
   function typeSelectHtml() {
     return '<select class="form-select form-select-sm fld-type" style="max-width:11rem">' +
@@ -237,6 +240,7 @@
 
   function addFieldRow(data) {
     data = data || { id: uid(), type: 'text', label: '', required: false, options: [] };
+    if (!validFieldId(data.id)) data.id = uid();
     var sys = isSystemType(data.type);
     var row = document.createElement('div');
     row.className = 'field-builder-item';

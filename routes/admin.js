@@ -639,6 +639,7 @@ router.get('/events/:id/registrations/export.csv', requireAccountContext, async 
       ];
       const customVals = customFieldDefs.map((f) => {
         const v = r.customFields && r.customFields[f.id];
+        if (f.type === 'checkbox') return v === true ? 'כן' : 'לא';
         if (typeof v === 'boolean') return v ? 'כן' : 'לא';
         return v !== undefined && v !== null ? v : '';
       });

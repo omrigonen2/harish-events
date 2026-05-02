@@ -68,7 +68,9 @@
               <% customFieldDefs.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); }).forEach(function(f) { %>
                 <td>
                   <% var v = r.customFields && r.customFields[f.id]; %>
-                  <% if (typeof v === 'boolean') { %>
+                  <% if (f.type === 'checkbox') { %>
+                    <%= v === true ? 'כן' : 'לא' %>
+                  <% } else if (typeof v === 'boolean') { %>
                     <%= v ? 'כן' : 'לא' %>
                   <% } else if (v !== undefined && v !== null) { %>
                     <%= v %>
