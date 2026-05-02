@@ -9,8 +9,10 @@ const multer = require('multer');
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const adminAccountRoutes = require('./routes/admin-accounts');
+const adminMessagingRoutes = require('./routes/admin-messaging');
 const ticketRoutes = require('./routes/tickets');
 const { formatDateTimeIsrael } = require('./lib/datetimeLocal');
+const messageQueue = require('./lib/messageQueue');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,6 +53,7 @@ app.use('/', publicRoutes);
 app.use('/', ticketRoutes);
 app.use('/admin', adminRoutes);
 app.use('/admin', adminAccountRoutes);
+app.use('/', adminMessagingRoutes);
 
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
@@ -63,6 +66,9 @@ app.use((err, req, res, next) => {
 mongoose
   .connect(mongoUrl)
   .then(() => {
+    messageQueue.start().catch((err) => {
+      console.error('Message queue failed to start:', err);
+    });
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server listening on port ${PORT}`);
     });

@@ -1,0 +1,88 @@
+<%- include('../partials/header', { title: title }) %>
+<%- include('partials/admin-navbar', { sessionUser: locals.sessionUser || {}, memberships: locals.memberships || [] }) %>
+<div class="container-fluid px-3 px-md-4 mb-3">
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-outline-secondary btn-sm" href="/admin/events/<%= event._id %>/edit">עריכת אירוע</a>
+    <a class="btn btn-outline-success btn-sm" href="/admin/events/<%= event._id %>/registrations">נרשמים</a>
+  </div>
+</div>
+
+<main class="container pb-5">
+  <h1 class="h4 mb-4">שליחת הודעות: <%= event.name %></h1>
+
+  <% if (formError) { %>
+    <div class="alert alert-danger"><%= formError %></div>
+  <% } %>
+  <% if (formMessage) { %>
+    <div class="alert alert-success"><%= formMessage %></div>
+  <% } %>
+
+  <div class="card admin-card p-4 mb-4">
+    <h2 class="h5 mb-3">הודעה חדשה לנרשמים</h2>
+    <form method="post" action="/admin/events/<%= event._id %>/messaging/start" enctype="multipart/form-data"
+          onsubmit="return confirm('להתחיל שליחת הודעות לנרשמים? השליחה תרוץ בתור בקצב הודעה אחת בכל 5 שניות.');">
+      <div class="mb-3">
+        <label class="form-label">שם פנימי לקמפיין</label>
+        <input class="form-control" name="name" placeholder="לדוגמה: תזכורת לפני האירוע">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">תוכן ההודעה *</label>
+        <textarea class="form-control" name="messageText" rows="7" required></textarea>
+        <p class="small text-muted mt-2 mb-0">
+          אפשר להשתמש במשתנים:
+          <code dir="ltr">{{parentFirstName}}</code>,
+          <code dir="ltr">{{parentLastName}}</code>,
+          <code dir="ltr">{{eventName}}</code>,
+          <code dir="ltr">{{eventDate}}</code>,
+          <code dir="ltr">{{ticketUrl}}</code>
+        </p>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">תמונה מצורפת (אופציונלי)</label>
+        <input class="form-control" type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml">
+        <input type="hidden" name="imageKey" value="">
+        <p class="small text-muted mb-0">אם מצורפת תמונה, היא תישלח עם כל הודעה דרך Wasender.</p>
+      </div>
+      <button type="submit" class="btn btn-primary">התחלת שליחה</button>
+    </form>
+  </div>
+
+  <div class="card admin-card p-4">
+    <h2 class="h5 mb-3">קמפיינים קודמים</h2>
+    <% if (!campaigns.length) { %>
+      <p class="text-muted mb-0">אין קמפיינים עדיין.</p>
+    <% } else { %>
+      <div class="table-responsive">
+        <table class="table table-striped align-middle">
+          <thead>
+            <tr>
+              <th>שם</th>
+              <th>סטטוס</th>
+              <th class="text-center">נמענים</th>
+              <th class="text-center">נשלחו</th>
+              <th class="text-center">נכשלו</th>
+              <th>נוצר</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% campaigns.forEach(function(campaign) { %>
+              <tr>
+                <td><%= campaign.name || 'ללא שם' %></td>
+                <td><span class="badge text-bg-secondary"><%= campaign.status %></span></td>
+                <td class="text-center"><%= campaign.totalRecipients || 0 %></td>
+                <td class="text-center"><%= campaign.sentCount || 0 %></td>
+                <td class="text-center"><%= campaign.failedCount || 0 %></td>
+                <td class="text-nowrap"><%= campaign.createdAt ? formatDateTimeIsrael(campaign.createdAt) : '' %></td>
+                <td class="text-nowrap">
+                  <a class="btn btn-sm btn-outline-primary" href="/admin/events/<%= event._id %>/messaging/campaigns/<%= campaign._id %>">מעקב</a>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+</main>
+<%- include('../partials/footer') %>
