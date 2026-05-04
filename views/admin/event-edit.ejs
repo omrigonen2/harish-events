@@ -47,6 +47,7 @@
           <hr class="my-4">
           <h3 class="h6">הרשמה</h3>
           <div class="form-check mb-3">
+            <input type="hidden" name="hasChildrenPresent" value="1">
             <input class="form-check-input" type="checkbox" name="hasChildren" id="hasChildrenEdit"
               <%= editEvent.hasChildren !== false ? 'checked' : '' %>>
             <label class="form-check-label" for="hasChildrenEdit">באירוע משתתפים ילדים</label>

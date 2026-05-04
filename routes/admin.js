@@ -64,9 +64,12 @@ function parseSignupFields(body) {
     const n = parseInt(raw, 10);
     if (!Number.isNaN(n) && n >= 0) signupLimit = n;
   }
-  const hasChildren = body.hasChildren === undefined
-    ? true
-    : body.hasChildren === 'on' || body.hasChildren === 'true';
+  const hasChildrenSubmitted = body.hasChildrenPresent === '1';
+  const hasChildren = hasChildrenSubmitted
+    ? body.hasChildren === 'on' || body.hasChildren === 'true'
+    : body.hasChildren === undefined
+      ? true
+      : body.hasChildren === 'on' || body.hasChildren === 'true';
   let signupLimitCountMode = 'families';
   if (body.signupLimitCountMode === 'participants') signupLimitCountMode = 'participants';
   else if (body.signupLimitCountMode === 'children') signupLimitCountMode = 'children';
