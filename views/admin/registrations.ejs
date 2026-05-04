@@ -7,6 +7,12 @@
     <a class="btn btn-outline-info btn-sm" href="/admin/events/<%= event._id %>/messaging">שליחת הודעות</a>
   </div>
 </div>
+<%
+  var pField = typeof peopleField !== 'undefined' ? peopleField : null;
+  var pCollectsAge = pField ? pField.collectAge !== false : false;
+  var pLabel = pField ? pField.label : 'ילדים';
+  var pTotal = typeof totalPeople !== 'undefined' ? totalPeople : 0;
+%>
 <main class="container-fluid px-3 px-md-4 pb-5">
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <h1 class="h4 mb-0">נרשמים: <%= event.name %></h1>
@@ -15,8 +21,8 @@
 
   <div class="d-flex flex-wrap gap-4 mb-3 text-muted small">
     <span><strong class="text-body">סה״כ נרשמים:</strong> <%= typeof registrationCount !== 'undefined' ? registrationCount : registrations.length %></span>
-    <% if (event.hasChildren !== false) { %>
-      <span><strong class="text-body">סה״כ ילדים:</strong> <%= typeof totalChildren !== 'undefined' ? totalChildren : 0 %></span>
+    <% if (pField) { %>
+      <span><strong class="text-body">סה״כ <%= pLabel %>:</strong> <%= pTotal %></span>
     <% } %>
   </div>
 
@@ -31,9 +37,9 @@
             <th>תאריך</th>
             <th>הורה</th>
             <th>טלפון</th>
-            <% if (event.hasChildren !== false) { %>
-              <th class="text-center">מספר ילדים</th>
-              <th>ילדים</th>
+            <% if (pField) { %>
+              <th class="text-center">מספר <%= pLabel %></th>
+              <th><%= pLabel %></th>
             <% } %>
             <th>כרטיס / כניסה</th>
             <% customFieldDefs.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); }).forEach(function(f) { %>
@@ -49,11 +55,15 @@
               <td class="text-nowrap"><%= r.createdAt ? formatDateTimeIsrael(r.createdAt) : '' %></td>
               <td><%= r.parentFirstName %> <%= r.parentLastName %></td>
               <td class="text-nowrap"><%= r.phone %></td>
-              <% if (event.hasChildren !== false) { %>
+              <% if (pField) { %>
                 <td class="text-center"><%= (r.children || []).length %></td>
                 <td>
                   <% (r.children || []).forEach(function(c, j) { %>
-                    <%= c.name %> (<%= c.age %>)<% if (j < r.children.length - 1) { %>, <% } %>
+                    <% if (pCollectsAge) { %>
+                      <%= c.name %> (<%= c.age %>)
+                    <% } else { %>
+                      <%= c.name %>
+                    <% } %><% if (j < r.children.length - 1) { %>, <% } %>
                   <% }); %>
                 </td>
               <% } %>
@@ -63,7 +73,7 @@
                   <% var admittedAdults = r.ticketCheckInAdults != null ? r.ticketCheckInAdults : 1; %>
                   <% var admittedChildren = r.ticketCheckInChildren != null ? r.ticketCheckInChildren : (r.children || []).length; %>
                   <div class="small text-muted">
-                    כניסה: <%= admittedAdults %> מבוגרים<% if (event.hasChildren !== false) { %>, <%= admittedChildren %> ילדים<% } %>
+                    כניסה: <%= admittedAdults %> מבוגרים<% if (pField) { %>, <%= admittedChildren %> <%= pLabel %><% } %>
                   </div>
                 <% } else if (r.ticketToken) { %>
                   נשלח / ממתין

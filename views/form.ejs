@@ -97,19 +97,43 @@
                 value="<%= oldBody && oldBody.phone ? oldBody.phone : '' %>">
             </div>
           <% } else if (f.type === 'children') { %>
-            <h2 class="h6 mt-4 mb-3"><%= f.label %></h2>
-            <div id="children-container" class="mb-2" data-name-label="<%= childNameLbl %>" data-age-label="<%= childAgeLbl %>">
+            <%
+              var fCollectAge = f.collectAge !== false;
+              var fMaxRows = typeof f.maxRows === 'number' && f.maxRows >= 1 ? f.maxRows : null;
+              var capIncludesRegistrant = event && event.ticketCapIncludesRegistrant ? true : false;
+              var effectiveMaxHint = fMaxRows == null ? null : (capIncludesRegistrant ? Math.max(0, fMaxRows - 1) : fMaxRows);
+              var addBtnLabel = fCollectAge ? '+ הוסף ילד/ה' : '+ הוסף אדם';
+            %>
+            <h2 class="h6 mt-4 mb-1"><%= f.label %></h2>
+            <% if (fMaxRows != null) { %>
+              <p class="small text-muted mb-2">
+                <% if (capIncludesRegistrant) { %>
+                  ניתן להוסיף עד <%= effectiveMaxHint %> אנשים (סך הכל <%= fMaxRows %> אנשים בכרטיס כולל הנרשם הראשי).
+                <% } else { %>
+                  ניתן להוסיף עד <%= fMaxRows %> אנשים.
+                <% } %>
+              </p>
+            <% } %>
+            <div id="children-container" class="mb-2"
+              data-name-label="<%= childNameLbl %>"
+              data-age-label="<%= childAgeLbl %>"
+              data-collect-age="<%= fCollectAge ? 'true' : 'false' %>"
+              data-required="<%= f.required ? 'true' : 'false' %>"
+              <% if (fMaxRows != null) { %>data-max-rows="<%= fMaxRows %>"<% } %>
+              data-cap-includes-registrant="<%= capIncludesRegistrant ? 'true' : 'false' %>">
               <% (childRows || [{ name: '', age: '' }]).forEach(function(row, idx) { %>
                 <div class="child-row border rounded p-3 mb-2" data-index="<%= idx %>">
                   <div class="row g-2 align-items-end">
-                    <div class="col-md-6">
+                    <div class="<%= fCollectAge ? 'col-md-6' : 'col-md-10' %>">
                       <label class="form-label child-lbl-name"><%= childNameLbl %><%= f.required ? ' *' : '' %></label>
                       <input class="form-control child-name" type="text" name="children[<%= idx %>][name]" maxlength="120" <%= f.required ? 'required' : '' %> value="<%= row.name %>">
                     </div>
+                    <% if (fCollectAge) { %>
                     <div class="col-md-4">
                       <label class="form-label child-lbl-age"><%= childAgeLbl %><%= f.required ? ' *' : '' %></label>
                       <input class="form-control child-age" type="number" name="children[<%= idx %>][age]" min="0" max="120" <%= f.required ? 'required' : '' %> value="<%= row.age %>">
                     </div>
+                    <% } %>
                     <div class="col-md-2 text-md-start text-end">
                       <button type="button" class="btn btn-outline-danger btn-sm btn-remove-child" title="הסר">הסר</button>
                     </div>
@@ -117,7 +141,7 @@
                 </div>
               <% }); %>
             </div>
-            <button type="button" class="btn btn-outline-secondary btn-sm mb-4" id="add-child-btn">+ הוסף ילד/ה</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm mb-4" id="add-child-btn"><%= addBtnLabel %></button>
           <% } else if (f.type === 'text') { %>
             <% var cid = 'custom_' + f.id; var val = oldBody && oldBody[cid] !== undefined ? oldBody[cid] : ''; %>
             <div class="mb-3">

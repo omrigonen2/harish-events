@@ -1,6 +1,8 @@
 const express = require('express');
 const Event = require('../models/Event');
+const FormConfig = require('../models/FormConfig');
 const Registration = require('../models/Registration');
+const { getFieldsForRender } = require('../lib/formFields');
 const {
   buildTicketQrPngBuffer,
   buildTicketUrl,
@@ -57,9 +59,14 @@ router.get('/gate/:checkInToken', async (req, res) => {
       return res.status(404).render('error', { title: 'לא נמצא', message: 'קישור הסריקה אינו תקין או שהכרטיסים כבויים.' });
     }
 
+    const formConfig = await FormConfig.findOne({ eventId: event._id }).lean();
+    const allFields = getFieldsForRender(formConfig, { hasChildren: event.hasChildren !== false });
+    const peopleField = allFields.find((f) => f.type === 'children') || null;
+
     return res.render('gate', {
       title: `סריקת כרטיסים — ${event.name}`,
       event,
+      peopleField,
       checkInToken: req.params.checkInToken,
     });
   } catch (err) {

@@ -83,12 +83,14 @@ function parseChildrenFromBody(body) {
   return [];
 }
 
-function normalizeChildren(rows) {
+function normalizeChildren(rows, { collectAge = true } = {}) {
   return rows
-    .filter((r) => r.name && !Number.isNaN(r.age))
+    .filter((r) => r.name && (collectAge ? !Number.isNaN(r.age) : true))
     .map((r) => ({
       name: r.name.trim(),
-      age: Math.min(120, Math.max(0, Math.floor(Number(r.age)))),
+      age: collectAge && !Number.isNaN(r.age)
+        ? Math.min(120, Math.max(0, Math.floor(Number(r.age))))
+        : 0,
     }));
 }
 
@@ -139,10 +141,29 @@ function parseCustomFieldsFromBody(body, fieldDefs) {
   return out;
 }
 
-function validateSubmission(fieldDefs, parentFirstName, parentLastName, phone, children, customData) {
+function validateSubmission(fieldDefs, parentFirstName, parentLastName, phone, children, customData, { event } = {}) {
   const errors = [];
   const sorted = [...fieldDefs].sort((a, b) => (a.order || 0) - (b.order || 0));
   for (const f of sorted) {
+    if (f.type === 'children') {
+      const collectAge = f.collectAge !== false;
+      if (f.required && !children.length) {
+        errors.push(`יש למלא לפחות ${collectAge ? 'ילד/ה' : 'אדם'} בקטע "${f.label}"`);
+      }
+      const maxRows = typeof f.maxRows === 'number' && f.maxRows >= 1 ? f.maxRows : null;
+      if (maxRows != null) {
+        const capIncludesRegistrant = !!(event && event.ticketCapIncludesRegistrant);
+        const effectiveMax = capIncludesRegistrant ? Math.max(0, maxRows - 1) : maxRows;
+        if (children.length > effectiveMax) {
+          errors.push(
+            capIncludesRegistrant
+              ? `ניתן להוסיף עד ${effectiveMax} אנשים בקטע "${f.label}" (סה״כ ${maxRows} בכרטיס כולל הנרשם הראשי).`
+              : `ניתן להוסיף עד ${maxRows} אנשים בקטע "${f.label}".`
+          );
+        }
+      }
+      continue;
+    }
     if (!f.required) continue;
     if (f.type === 'parent_first') {
       if (!parentFirstName) errors.push(`"${f.label}" חובה`);
@@ -150,8 +171,6 @@ function validateSubmission(fieldDefs, parentFirstName, parentLastName, phone, c
       if (!parentLastName) errors.push(`"${f.label}" חובה`);
     } else if (f.type === 'phone') {
       if (!phone) errors.push(`"${f.label}" חובה`);
-    } else if (f.type === 'children') {
-      if (!children.length) errors.push(`יש למלא לפחות ילד/ה בקטע "${f.label}"`);
     } else if (isCustomFieldType(f.type)) {
       const val = customData[f.id];
       if (val === undefined || val === '' || val === false) {
@@ -275,8 +294,10 @@ router.post('/register/:eventId', async (req, res) => {
     const parentLastName = (req.body.parentLastName || '').trim();
     const phone = (req.body.phone || '').trim();
     const phoneNormalized = normalizePhone(phone);
+    const peopleField = fieldDefs.find((f) => f.type === 'children') || null;
+    const collectAge = peopleField ? peopleField.collectAge !== false : true;
     const childrenRaw = parseChildrenFromBody(req.body);
-    const children = normalizeChildren(childrenRaw);
+    const children = normalizeChildren(childrenRaw, { collectAge });
     const customFields = parseCustomFieldsFromBody(req.body, customDefsOnly);
 
     const errors = validateSubmission(
@@ -285,7 +306,8 @@ router.post('/register/:eventId', async (req, res) => {
       parentLastName,
       phone,
       children,
-      customFields
+      customFields,
+      { event }
     );
 
     if (errors.length) {

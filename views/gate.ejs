@@ -1,5 +1,8 @@
 <%- include('partials/header', { title: title, bodyClass: 'bg-light' }) %>
-<% var hasChildren = event.hasChildren !== false; %>
+<%
+  var pField = typeof peopleField !== 'undefined' ? peopleField : null;
+  var pLabel = pField ? pField.label : 'ילדים';
+%>
 <main class="container py-4" style="max-width: 38rem;">
   <div class="card shadow-sm p-4">
     <h1 class="h4 mb-2 text-center">סריקת כרטיסים</h1>
@@ -16,8 +19,8 @@
           <dd class="col-7 mb-2" id="preview-name">—</dd>
           <dt class="col-5">מבוגרים</dt>
           <dd class="col-7 mb-2" id="preview-adults">—</dd>
-          <% if (hasChildren) { %>
-            <dt class="col-5">ילדים</dt>
+          <% if (pField) { %>
+            <dt class="col-5"><%= pLabel %></dt>
             <dd class="col-7 mb-2" id="preview-children">—</dd>
           <% } %>
           <dt class="col-5">סטטוס</dt>
@@ -25,13 +28,13 @@
         </dl>
 
         <div id="count-edit" class="row g-2 mb-3 d-none">
-          <div class="<%= hasChildren ? 'col-6' : 'col-12' %>">
+          <div class="<%= pField ? 'col-6' : 'col-12' %>">
             <label class="form-label small" for="adults-count">מבוגרים בכניסה</label>
             <input class="form-control" type="number" id="adults-count" min="1" max="50" step="1">
           </div>
-          <% if (hasChildren) { %>
+          <% if (pField) { %>
             <div class="col-6">
-              <label class="form-label small" for="children-count">ילדים בכניסה</label>
+              <label class="form-label small" for="children-count"><%= pLabel %> בכניסה</label>
               <input class="form-control" type="number" id="children-count" min="0" max="50" step="1">
             </div>
           <% } %>
