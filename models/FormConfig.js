@@ -25,6 +25,8 @@ const formFieldSchema = new mongoose.Schema(
     options: { type: [String], default: [] },
     childNameLabel: { type: String, default: 'שם הילד/ה' },
     childAgeLabel: { type: String, default: 'גיל' },
+    collectAge: { type: Boolean, default: true },
+    maxRows: { type: Number, default: null, min: 1 },
   },
   { _id: false }
 );

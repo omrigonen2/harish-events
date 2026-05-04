@@ -78,7 +78,18 @@ function parseSignupFields(body) {
   }
   const signupCloseAt = parseDatetimeLocalInput(body.signupCloseAt || '');
   const signupPhoneUnique = body.signupPhoneUnique === 'on' || body.signupPhoneUnique === 'true';
-  return { signupLimit, signupLimitCountMode, signupCloseAt, signupPhoneUnique, hasChildren };
+  const capPresent = body.ticketCapIncludesRegistrantPresent === '1';
+  const ticketCapIncludesRegistrant = capPresent
+    ? body.ticketCapIncludesRegistrant === 'on' || body.ticketCapIncludesRegistrant === 'true'
+    : body.ticketCapIncludesRegistrant === 'on' || body.ticketCapIncludesRegistrant === 'true';
+  return {
+    signupLimit,
+    signupLimitCountMode,
+    signupCloseAt,
+    signupPhoneUnique,
+    hasChildren,
+    ticketCapIncludesRegistrant,
+  };
 }
 
 function parseFormConfigBody(body, { hasChildren = true } = {}) {
@@ -436,6 +447,7 @@ router.post('/events/create', requireAccountContext, async (req, res) => {
       signupCloseAt: signup.signupCloseAt,
       signupPhoneUnique: signup.signupPhoneUnique,
       hasChildren: signup.hasChildren,
+      ticketCapIncludesRegistrant: signup.ticketCapIncludesRegistrant,
       ticketsEnabled,
       ticketsGateAllowCountEdit,
       checkInToken: ticketsEnabled ? generateToken(32) : undefined,
@@ -478,6 +490,7 @@ router.post('/events/:id/update', requireAccountContext, async (req, res) => {
     event.signupPhoneUnique = signup.signupPhoneUnique;
     const previousHasChildren = event.hasChildren !== false;
     event.hasChildren = signup.hasChildren;
+    event.ticketCapIncludesRegistrant = signup.ticketCapIncludesRegistrant;
     event.ticketsEnabled = ticketsEnabled;
     event.ticketsGateAllowCountEdit = ticketsGateAllowCountEdit;
     if (ticketsEnabled && !event.checkInToken) {
@@ -599,8 +612,10 @@ router.get('/events/:id/registrations', requireAccountContext, async (req, res) 
     const hasChildren = event.hasChildren !== false;
     const registrations = await Registration.find({ eventId: event._id }).sort({ createdAt: -1 }).lean();
     const formConfig = await FormConfig.findOne({ eventId: event._id }).lean();
-    const customFieldDefs = getCustomFieldDefs(getFieldsForRender(formConfig, { hasChildren }));
-    const totalChildren = hasChildren
+    const allFields = getFieldsForRender(formConfig, { hasChildren });
+    const customFieldDefs = getCustomFieldDefs(allFields);
+    const peopleField = allFields.find((f) => f.type === 'children') || null;
+    const totalPeople = peopleField
       ? registrations.reduce(
           (sum, r) => sum + (r.children && r.children.length ? r.children.length : 0),
           0
@@ -613,8 +628,9 @@ router.get('/events/:id/registrations', requireAccountContext, async (req, res) 
       event,
       registrations,
       customFieldDefs,
+      peopleField,
       registrationCount: registrations.length,
-      totalChildren,
+      totalPeople,
       ...al,
     });
   } catch (err) {
@@ -654,11 +670,16 @@ router.get('/events/:id/registrations/export.csv', requireAccountContext, async 
     const hasChildren = event.hasChildren !== false;
     const registrations = await Registration.find({ eventId: event._id }).sort({ createdAt: -1 }).lean();
     const formConfig = await FormConfig.findOne({ eventId: event._id }).lean();
-    const customFieldDefs = getCustomFieldDefs(getFieldsForRender(formConfig, { hasChildren }));
+    const allFields = getFieldsForRender(formConfig, { hasChildren });
+    const customFieldDefs = getCustomFieldDefs(allFields);
+    const peopleField = allFields.find((f) => f.type === 'children') || null;
+    const peopleCollectsAge = peopleField ? peopleField.collectAge !== false : false;
+    const peopleLabel = peopleField ? peopleField.label : '';
 
     const baseHeaders = ['תאריך הרשמה', 'שם פרטי הורה', 'שם משפחה הורה', 'טלפון'];
-    if (hasChildren) {
-      baseHeaders.push('מספר ילדים', 'ילדים (שם וגיל)');
+    if (peopleField) {
+      baseHeaders.push(`מספר ${peopleLabel}`);
+      baseHeaders.push(peopleCollectsAge ? `${peopleLabel} (שם וגיל)` : `${peopleLabel} (שמות)`);
     }
     const customHeaders = customFieldDefs.map((f) => f.label);
 
@@ -670,8 +691,10 @@ router.get('/events/:id/registrations/export.csv', requireAccountContext, async 
         r.parentLastName,
         r.phone,
       ];
-      if (hasChildren) {
-        const childrenStr = childrenArr.map((c) => `${c.name} (${c.age})`).join('; ');
+      if (peopleField) {
+        const childrenStr = peopleCollectsAge
+          ? childrenArr.map((c) => `${c.name} (${c.age})`).join('; ')
+          : childrenArr.map((c) => c.name).join('; ');
         base.push(String(childrenArr.length), childrenStr);
       }
       const customVals = customFieldDefs.map((f) => {

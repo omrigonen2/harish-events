@@ -79,6 +79,13 @@
             <label class="form-check-label" for="signupPhoneUnique">לאפשר הרשמה אחת בלבד לכל מספר טלפון</label>
             <p class="small text-muted mb-0">כאשר האפשרות פעילה, ניסיון הרשמה נוסף עם אותו מספר יקבל הודעת שגיאה.</p>
           </div>
+          <div class="form-check mb-3">
+            <input type="hidden" name="ticketCapIncludesRegistrantPresent" value="1">
+            <input class="form-check-input" type="checkbox" name="ticketCapIncludesRegistrant" id="ticketCapIncludesRegistrant"
+              <%= editEvent.ticketCapIncludesRegistrant ? 'checked' : '' %>>
+            <label class="form-check-label" for="ticketCapIncludesRegistrant">מגבלת אנשים בכרטיס כוללת את הנרשם הראשי</label>
+            <p class="small text-muted mb-0">רלוונטי רק כאשר נקבעה מגבלה ברשימת האנשים בטופס. לדוגמה, &quot;5&quot; ייצור כרטיס שמכיל הורה + 4 נוספים.</p>
+          </div>
 
           <hr class="my-4">
           <h3 class="h6">כרטיסים וכניסה</h3>

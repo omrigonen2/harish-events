@@ -23,6 +23,8 @@ const eventSchema = new mongoose.Schema(
     signupPhoneUnique: { type: Boolean, default: false },
     /** When false, the event has no children — children section is hidden everywhere */
     hasChildren: { type: Boolean, default: true },
+    /** When true, the people-list maxRows includes the main registrant (so list cap = maxRows - 1) */
+    ticketCapIncludesRegistrant: { type: Boolean, default: false },
     /** Optional WhatsApp ticket with QR check-in */
     ticketsEnabled: { type: Boolean, default: false },
     /** Allow gate staff to adjust admitted adults/children before check-in */

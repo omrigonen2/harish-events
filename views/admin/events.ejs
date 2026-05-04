@@ -61,6 +61,12 @@
             <label class="form-check-label" for="signupPhoneUniqueNew">לאפשר הרשמה אחת בלבד לכל מספר טלפון</label>
             <p class="small text-muted mb-0">כאשר האפשרות פעילה, ניסיון הרשמה נוסף עם אותו מספר יקבל הודעת שגיאה.</p>
           </div>
+          <div class="form-check mb-3">
+            <input type="hidden" name="ticketCapIncludesRegistrantPresent" value="1">
+            <input class="form-check-input" type="checkbox" name="ticketCapIncludesRegistrant" id="ticketCapIncludesRegistrantNew">
+            <label class="form-check-label" for="ticketCapIncludesRegistrantNew">מגבלת אנשים בכרטיס כוללת את הנרשם הראשי</label>
+            <p class="small text-muted mb-0">רלוונטי רק כאשר נקבעה מגבלה ברשימת האנשים בטופס.</p>
+          </div>
 
           <% if (locals.sessionUser && locals.sessionUser.role === 'superadmin' && allAccounts && allAccounts.length) { %>
           <div class="mb-3">
