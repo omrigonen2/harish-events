@@ -21,6 +21,8 @@ const eventSchema = new mongoose.Schema(
     signupCloseAt: { type: Date, default: null },
     /** Block more than one registration with the same normalized phone for this event */
     signupPhoneUnique: { type: Boolean, default: false },
+    /** When false, the event has no children — children section is hidden everywhere */
+    hasChildren: { type: Boolean, default: true },
     /** Optional WhatsApp ticket with QR check-in */
     ticketsEnabled: { type: Boolean, default: false },
     /** Allow gate staff to adjust admitted adults/children before check-in */

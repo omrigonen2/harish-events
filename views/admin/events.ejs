@@ -34,16 +34,21 @@
 
           <hr class="my-4">
           <h3 class="h6">הרשמה</h3>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="hasChildren" id="hasChildrenNew" checked>
+            <label class="form-check-label" for="hasChildrenNew">באירוע משתתפים ילדים</label>
+            <p class="small text-muted mb-0">בטל אם זה אירוע למבוגרים בלבד.</p>
+          </div>
           <div class="mb-3">
             <label class="form-label">מגבלת הרשמות</label>
             <input class="form-control" type="number" name="signupLimit" min="0" step="1" placeholder="ריק = ללא הגבלה">
           </div>
           <div class="mb-3">
             <label class="form-label">ספירה למכסה</label>
-            <select class="form-select" name="signupLimitCountMode">
+            <select class="form-select" name="signupLimitCountMode" id="signupLimitCountModeNew">
               <option value="families" selected>משפחות (הרשמה אחת לכל טופס)</option>
-              <option value="participants">משתתפים (מבוגר אחד + כל ילד נספר)</option>
-              <option value="children">ילדים בלבד (ספירת כל ילד בטפסים)</option>
+              <option value="participants" data-needs-children="true">משתתפים (מבוגר אחד + כל ילד נספר)</option>
+              <option value="children" data-needs-children="true">ילדים בלבד (ספירת כל ילד בטפסים)</option>
             </select>
           </div>
           <div class="mb-3">
@@ -110,4 +115,25 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/tinymce@7/tinymce.min.js" crossorigin="anonymous"></script>
 <script src="/js/tinymce-event.js"></script>
+<script>
+(function () {
+  var hc = document.getElementById('hasChildrenNew');
+  var mode = document.getElementById('signupLimitCountModeNew');
+  if (!hc || !mode) return;
+  function sync() {
+    var enabled = hc.checked;
+    Array.from(mode.options).forEach(function (opt) {
+      if (opt.dataset.needsChildren === 'true') {
+        opt.hidden = !enabled;
+        opt.disabled = !enabled;
+      }
+    });
+    if (!enabled && mode.selectedOptions[0] && mode.selectedOptions[0].dataset.needsChildren === 'true') {
+      mode.value = 'families';
+    }
+  }
+  hc.addEventListener('change', sync);
+  sync();
+})();
+</script>
 <%- include('../partials/footer') %>

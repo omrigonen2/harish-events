@@ -18,6 +18,7 @@ const formFieldSchema = new mongoose.Schema(
       required: true,
     },
     label: { type: String, required: true, trim: true },
+    placeholder: { type: String, default: '', trim: true },
     required: { type: Boolean, default: false },
     checkedByDefault: { type: Boolean, default: false },
     order: { type: Number, default: 0 },

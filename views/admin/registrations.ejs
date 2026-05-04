@@ -15,7 +15,9 @@
 
   <div class="d-flex flex-wrap gap-4 mb-3 text-muted small">
     <span><strong class="text-body">סה״כ נרשמים:</strong> <%= typeof registrationCount !== 'undefined' ? registrationCount : registrations.length %></span>
-    <span><strong class="text-body">סה״כ ילדים:</strong> <%= typeof totalChildren !== 'undefined' ? totalChildren : 0 %></span>
+    <% if (event.hasChildren !== false) { %>
+      <span><strong class="text-body">סה״כ ילדים:</strong> <%= typeof totalChildren !== 'undefined' ? totalChildren : 0 %></span>
+    <% } %>
   </div>
 
   <% if (!registrations.length) { %>
@@ -29,8 +31,10 @@
             <th>תאריך</th>
             <th>הורה</th>
             <th>טלפון</th>
-            <th class="text-center">מספר ילדים</th>
-            <th>ילדים</th>
+            <% if (event.hasChildren !== false) { %>
+              <th class="text-center">מספר ילדים</th>
+              <th>ילדים</th>
+            <% } %>
             <th>כרטיס / כניסה</th>
             <% customFieldDefs.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); }).forEach(function(f) { %>
               <th><%= f.label %></th>
@@ -45,19 +49,21 @@
               <td class="text-nowrap"><%= r.createdAt ? formatDateTimeIsrael(r.createdAt) : '' %></td>
               <td><%= r.parentFirstName %> <%= r.parentLastName %></td>
               <td class="text-nowrap"><%= r.phone %></td>
-              <td class="text-center"><%= (r.children || []).length %></td>
-              <td>
-                <% (r.children || []).forEach(function(c, j) { %>
-                  <%= c.name %> (<%= c.age %>)<% if (j < r.children.length - 1) { %>, <% } %>
-                <% }); %>
-              </td>
+              <% if (event.hasChildren !== false) { %>
+                <td class="text-center"><%= (r.children || []).length %></td>
+                <td>
+                  <% (r.children || []).forEach(function(c, j) { %>
+                    <%= c.name %> (<%= c.age %>)<% if (j < r.children.length - 1) { %>, <% } %>
+                  <% }); %>
+                </td>
+              <% } %>
               <td class="text-nowrap">
                 <% if (r.ticketCheckedInAt) { %>
                   אושר: <%= formatDateTimeIsrael(r.ticketCheckedInAt) %>
                   <% var admittedAdults = r.ticketCheckInAdults != null ? r.ticketCheckInAdults : 1; %>
                   <% var admittedChildren = r.ticketCheckInChildren != null ? r.ticketCheckInChildren : (r.children || []).length; %>
                   <div class="small text-muted">
-                    כניסה: <%= admittedAdults %> מבוגרים, <%= admittedChildren %> ילדים
+                    כניסה: <%= admittedAdults %> מבוגרים<% if (event.hasChildren !== false) { %>, <%= admittedChildren %> ילדים<% } %>
                   </div>
                 <% } else if (r.ticketToken) { %>
                   נשלח / ממתין

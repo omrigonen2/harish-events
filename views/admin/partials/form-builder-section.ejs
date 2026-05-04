@@ -2,6 +2,7 @@
   var cols = config.colors || {};
   var cf = config.fields || [];
   var rawCfg = typeof configRaw !== 'undefined' ? configRaw : config;
+  var eventHasChildren = !(event && event.hasChildren === false);
 %>
 <style>
 .image-drop-zone {
@@ -162,13 +163,19 @@
   syncPreview();
 
   var SYSTEM_TYPES = ['parent_first', 'parent_last', 'phone', 'children'];
+  var PLACEHOLDER_TYPES = ['parent_first', 'parent_last', 'phone', 'text', 'textarea'];
+  var EVENT_HAS_CHILDREN = <%- eventHasChildren ? 'true' : 'false' %>;
   function isSystemType(t) { return SYSTEM_TYPES.indexOf(t) >= 0; }
+  function supportsPlaceholder(t) { return PLACEHOLDER_TYPES.indexOf(t) >= 0; }
 
-  var initial = <%- JSON.stringify((cf || []).map(function(f, i) {
+  var initial = <%- JSON.stringify((cf || []).filter(function(f) {
+    return eventHasChildren || f.type !== 'children';
+  }).map(function(f, i) {
     return {
       id: f.id,
       type: f.type || 'text',
       label: f.label || '',
+      placeholder: f.placeholder || '',
       required: !!f.required,
       checkedByDefault: !!f.checkedByDefault,
       order: typeof f.order === 'number' ? f.order : i,
@@ -193,7 +200,7 @@
       '<option value="parent_first">שם פרטי הורה</option>' +
       '<option value="parent_last">שם משפחה הורה</option>' +
       '<option value="phone">טלפון נייד</option>' +
-      '<option value="children">ילדים (רשימה)</option>' +
+      (EVENT_HAS_CHILDREN ? '<option value="children">ילדים (רשימה)</option>' : '') +
       '</optgroup>' +
       '<optgroup label="שדות נוספים">' +
       '<option value="text">טקסט</option>' +
@@ -209,6 +216,7 @@
       var options = type === 'select'
         ? row.querySelector('.fld-options').value.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean)
         : [];
+      var placeholderEl = row.querySelector('.fld-placeholder');
       var out = {
         id: row.getAttribute('data-id') || uid(),
         type: type,
@@ -218,6 +226,9 @@
         order: idx,
         options: options,
       };
+      if (supportsPlaceholder(type) && placeholderEl) {
+        out.placeholder = placeholderEl.value.trim();
+      }
       if (type === 'children') {
         var cn = row.querySelector('.fld-child-name');
         var ca = row.querySelector('.fld-child-age');
@@ -233,9 +244,11 @@
     var optWrap = row.querySelector('.fld-options-wrap');
     var childWrap = row.querySelector('.fld-child-wrap');
     var checkboxWrap = row.querySelector('.fld-checkbox-wrap');
+    var phWrap = row.querySelector('.fld-placeholder-wrap');
     if (optWrap) optWrap.style.display = t === 'select' ? 'block' : 'none';
     if (childWrap) childWrap.style.display = t === 'children' ? 'block' : 'none';
     if (checkboxWrap) checkboxWrap.style.display = t === 'checkbox' ? 'block' : 'none';
+    if (phWrap) phWrap.style.display = supportsPlaceholder(t) ? 'block' : 'none';
   }
 
   function addFieldRow(data) {
@@ -260,6 +273,10 @@
         '</div>' +
         removeOrBadge +
       '</div>' +
+      '<div class="fld-placeholder-wrap mt-2" style="display:none">' +
+        '<label class="small text-muted">טקסט מציין (placeholder)</label>' +
+        '<input type="text" class="form-control form-control-sm fld-placeholder" placeholder="לדוגמה: 050-1234567">' +
+      '</div>' +
       '<div class="fld-child-wrap mt-2" style="display:none">' +
         '<div class="row g-2">' +
           '<div class="col-md-6"><label class="small text-muted">תווית שם ילד</label>' +
@@ -282,6 +299,8 @@
     row.querySelector('.fld-label').value = data.label || '';
     row.querySelector('.fld-required').checked = !!data.required;
     row.querySelector('.fld-checked-default').checked = !!data.checkedByDefault;
+    var phEl = row.querySelector('.fld-placeholder');
+    if (phEl) phEl.value = data.placeholder || '';
     var optTa = row.querySelector('.fld-options');
     if (data.type === 'select') { optTa.value = (data.options || []).join('\n'); }
     var cn = row.querySelector('.fld-child-name');

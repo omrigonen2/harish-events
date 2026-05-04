@@ -79,18 +79,21 @@
             <div class="mb-3">
               <label class="form-label" for="parentFirstName"><%= f.label %><%= f.required ? ' *' : '' %></label>
               <input class="form-control" id="parentFirstName" name="parentFirstName" maxlength="120" <%= f.required ? 'required' : '' %>
+                placeholder="<%= f.placeholder || '' %>"
                 value="<%= oldBody && oldBody.parentFirstName ? oldBody.parentFirstName : '' %>">
             </div>
           <% } else if (f.type === 'parent_last') { %>
             <div class="mb-3">
               <label class="form-label" for="parentLastName"><%= f.label %><%= f.required ? ' *' : '' %></label>
               <input class="form-control" id="parentLastName" name="parentLastName" maxlength="120" <%= f.required ? 'required' : '' %>
+                placeholder="<%= f.placeholder || '' %>"
                 value="<%= oldBody && oldBody.parentLastName ? oldBody.parentLastName : '' %>">
             </div>
           <% } else if (f.type === 'phone') { %>
             <div class="mb-3">
               <label class="form-label" for="phone"><%= f.label %><%= f.required ? ' *' : '' %></label>
               <input class="form-control" type="tel" id="phone" name="phone" maxlength="30" <%= f.required ? 'required' : '' %>
+                placeholder="<%= f.placeholder || '' %>"
                 value="<%= oldBody && oldBody.phone ? oldBody.phone : '' %>">
             </div>
           <% } else if (f.type === 'children') { %>
@@ -120,13 +123,15 @@
             <div class="mb-3">
               <label class="form-label" for="<%= cid %>"><%= f.label %><%= f.required ? ' *' : '' %></label>
               <input class="form-control" id="<%= cid %>" name="<%= cid %>" maxlength="500" <%= f.required ? 'required' : '' %>
+                placeholder="<%= f.placeholder || '' %>"
                 value="<%= typeof val === 'string' ? val : '' %>">
             </div>
           <% } else if (f.type === 'textarea') { %>
             <% var cid = 'custom_' + f.id; var val = oldBody && oldBody[cid] !== undefined ? oldBody[cid] : ''; %>
             <div class="mb-3">
               <label class="form-label" for="<%= cid %>"><%= f.label %><%= f.required ? ' *' : '' %></label>
-              <textarea class="form-control" id="<%= cid %>" name="<%= cid %>" rows="3" <%= f.required ? 'required' : '' %>><%= typeof val === 'string' ? val : '' %></textarea>
+              <textarea class="form-control" id="<%= cid %>" name="<%= cid %>" rows="3" <%= f.required ? 'required' : '' %>
+                placeholder="<%= f.placeholder || '' %>"><%= typeof val === 'string' ? val : '' %></textarea>
             </div>
           <% } else if (f.type === 'select') { %>
             <% var cid = 'custom_' + f.id; var val = oldBody && oldBody[cid] !== undefined ? oldBody[cid] : ''; %>

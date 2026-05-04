@@ -1,4 +1,5 @@
 <%- include('partials/header', { title: title, bodyClass: 'bg-light' }) %>
+<% var hasChildren = event.hasChildren !== false; %>
 <main class="container py-4" style="max-width: 38rem;">
   <div class="card shadow-sm p-4">
     <h1 class="h4 mb-2 text-center">סריקת כרטיסים</h1>
@@ -15,21 +16,25 @@
           <dd class="col-7 mb-2" id="preview-name">—</dd>
           <dt class="col-5">מבוגרים</dt>
           <dd class="col-7 mb-2" id="preview-adults">—</dd>
-          <dt class="col-5">ילדים</dt>
-          <dd class="col-7 mb-2" id="preview-children">—</dd>
+          <% if (hasChildren) { %>
+            <dt class="col-5">ילדים</dt>
+            <dd class="col-7 mb-2" id="preview-children">—</dd>
+          <% } %>
           <dt class="col-5">סטטוס</dt>
           <dd class="col-7 mb-0" id="preview-status">—</dd>
         </dl>
 
         <div id="count-edit" class="row g-2 mb-3 d-none">
-          <div class="col-6">
+          <div class="<%= hasChildren ? 'col-6' : 'col-12' %>">
             <label class="form-label small" for="adults-count">מבוגרים בכניסה</label>
             <input class="form-control" type="number" id="adults-count" min="1" max="50" step="1">
           </div>
-          <div class="col-6">
-            <label class="form-label small" for="children-count">ילדים בכניסה</label>
-            <input class="form-control" type="number" id="children-count" min="0" max="50" step="1">
-          </div>
+          <% if (hasChildren) { %>
+            <div class="col-6">
+              <label class="form-label small" for="children-count">ילדים בכניסה</label>
+              <input class="form-control" type="number" id="children-count" min="0" max="50" step="1">
+            </div>
+          <% } %>
         </div>
 
         <div class="d-flex gap-2 flex-wrap">
@@ -78,10 +83,10 @@
       burnButton.disabled = false;
       previewName.textContent = '—';
       previewAdults.textContent = '—';
-      previewChildren.textContent = '—';
+      if (previewChildren) previewChildren.textContent = '—';
       previewStatus.textContent = '—';
       adultsInput.value = '';
-      childrenInput.value = '';
+      if (childrenInput) childrenInput.value = '';
       setResult('secondary', 'מוכן לסריקה.');
     }
 
@@ -93,14 +98,14 @@
 
       previewName.textContent = holder.name || 'ללא שם';
       previewAdults.textContent = counts.adults != null ? counts.adults : '—';
-      previewChildren.textContent = counts.children != null ? counts.children : '—';
+      if (previewChildren) previewChildren.textContent = counts.children != null ? counts.children : '—';
       if (payload.status === 'checked_in') {
         previewStatus.textContent = 'אושר עכשיו';
       } else {
         previewStatus.textContent = payload.alreadyCheckedIn ? 'כבר אושר בעבר' : 'ממתין לאישור';
       }
       adultsInput.value = counts.adults != null ? counts.adults : 1;
-      childrenInput.value = counts.children != null ? counts.children : 0;
+      if (childrenInput) childrenInput.value = counts.children != null ? counts.children : 0;
       burnButton.disabled = Boolean(payload.alreadyCheckedIn);
 
       if (currentAllowCountEdit && !payload.alreadyCheckedIn) {
@@ -148,7 +153,7 @@
         const body = { ticketToken: currentScannedValue };
         if (currentAllowCountEdit) {
           body.adults = adultsInput.value;
-          body.children = childrenInput.value;
+          if (childrenInput) body.children = childrenInput.value;
         }
         const response = await fetch('/gate/<%= encodeURIComponent(checkInToken) %>/redeem', {
           method: 'POST',

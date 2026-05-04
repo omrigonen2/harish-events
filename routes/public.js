@@ -182,7 +182,8 @@ async function phoneAlreadyRegistered(eventId, phoneNormalized) {
 async function renderRegistrationForm(res, status, { event, formErrors = [], oldBody = {}, childRows, configDoc }) {
   const rows = childRows || [{ name: '', age: '' }];
   const cfg = configDoc !== undefined ? configDoc : await FormConfig.findOne({ eventId: event._id }).lean();
-  const fields = getFieldsForRender(cfg);
+  const hasChildren = event.hasChildren !== false;
+  const fields = getFieldsForRender(cfg, { hasChildren });
   const base = cfg || {
     colors: { primary: '#0d6efd', background: '#f8f9fa', text: '#212529', button: '#0d6efd' },
     backgroundImage: '',
@@ -256,7 +257,8 @@ router.post('/register/:eventId', async (req, res) => {
     }
 
     const configDoc = await FormConfig.findOne({ eventId: event._id }).lean();
-    const fieldDefs = getFieldsForRender(configDoc);
+    const hasChildren = event.hasChildren !== false;
+    const fieldDefs = getFieldsForRender(configDoc, { hasChildren });
     const customDefsOnly = getCustomFieldDefs(fieldDefs);
 
     const closed = await getSignupAvailability(event);
@@ -379,8 +381,12 @@ router.get('/success', async (req, res) => {
   try {
     let config = { ...defaults };
     if (eid && mongoose.Types.ObjectId.isValid(eid)) {
-      const cfgDoc = await FormConfig.findOne({ eventId: eid }).lean();
-      if (cfgDoc) config = await resolveConfigUrls({ ...cfgDoc, fields: getFieldsForRender(cfgDoc) });
+      const [cfgDoc, eventDoc] = await Promise.all([
+        FormConfig.findOne({ eventId: eid }).lean(),
+        Event.findById(eid).select('hasChildren').lean(),
+      ]);
+      const hasChildren = !eventDoc || eventDoc.hasChildren !== false;
+      if (cfgDoc) config = await resolveConfigUrls({ ...cfgDoc, fields: getFieldsForRender(cfgDoc, { hasChildren }) });
     }
     const c = config.colors || {};
     const rgb = hexToRgb(c.background || '#f8f9fa');

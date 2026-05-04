@@ -64,15 +64,21 @@ function parseSignupFields(body) {
     const n = parseInt(raw, 10);
     if (!Number.isNaN(n) && n >= 0) signupLimit = n;
   }
+  const hasChildren = body.hasChildren === undefined
+    ? true
+    : body.hasChildren === 'on' || body.hasChildren === 'true';
   let signupLimitCountMode = 'families';
   if (body.signupLimitCountMode === 'participants') signupLimitCountMode = 'participants';
   else if (body.signupLimitCountMode === 'children') signupLimitCountMode = 'children';
+  if (!hasChildren && signupLimitCountMode !== 'families') {
+    signupLimitCountMode = 'families';
+  }
   const signupCloseAt = parseDatetimeLocalInput(body.signupCloseAt || '');
   const signupPhoneUnique = body.signupPhoneUnique === 'on' || body.signupPhoneUnique === 'true';
-  return { signupLimit, signupLimitCountMode, signupCloseAt, signupPhoneUnique };
+  return { signupLimit, signupLimitCountMode, signupCloseAt, signupPhoneUnique, hasChildren };
 }
 
-function parseFormConfigBody(body) {
+function parseFormConfigBody(body, { hasChildren = true } = {}) {
   let fields = [];
   if (body.fieldsJson) {
     try {
@@ -90,7 +96,7 @@ function parseFormConfigBody(body) {
       text: body.colorText || '#212529',
       button: body.colorButton || '#0d6efd',
     },
-    fields: sanitizeFieldsFromBuilder(fields),
+    fields: sanitizeFieldsFromBuilder(fields, { hasChildren }),
   };
 }
 
@@ -98,21 +104,33 @@ function stableS3ImageUrl(key) {
   return `/images/s3/${encodeURIComponent(key)}`;
 }
 
-async function ensureFormConfig(eventId) {
+async function ensureFormConfig(eventId, { hasChildren = true } = {}) {
   let cfg = await FormConfig.findOne({ eventId });
   if (!cfg) {
-    return FormConfig.create({ eventId, colors: {}, fields: defaultFields() });
+    return FormConfig.create({
+      eventId,
+      colors: {},
+      fields: defaultFields({ hasChildren }),
+    });
   }
   const needsMigrate =
     !cfg.fields ||
     cfg.fields.length === 0 ||
     (cfg.customFields && cfg.customFields.length > 0);
   if (needsMigrate) {
-    cfg.fields = normalizeStoredFields(cfg);
+    cfg.fields = normalizeStoredFields(cfg, { hasChildren });
     cfg.customFields = [];
     await cfg.save();
   }
   return cfg;
+}
+
+async function syncFormConfigForChildren(eventId, hasChildren) {
+  const cfg = await FormConfig.findOne({ eventId });
+  if (!cfg) return;
+  cfg.fields = sanitizeFieldsFromBuilder(cfg.fields || [], { hasChildren });
+  cfg.customFields = [];
+  await cfg.save();
 }
 
 // ---------------------------------------------------------------------------
@@ -329,9 +347,10 @@ async function renderEventEditPage(req, res, opts = {}) {
   }
   const editObj = editEvent.toObject ? editEvent.toObject() : editEvent;
   const editDescriptionHtml = escapeForTextarea(editObj.description || '');
-  const cfg = await ensureFormConfig(editObj._id);
+  const hasChildren = editObj.hasChildren !== false;
+  const cfg = await ensureFormConfig(editObj._id, { hasChildren });
   const plain = cfg.toObject();
-  plain.fields = getFieldsForRender(plain);
+  plain.fields = getFieldsForRender(plain, { hasChildren });
   const builderConfig = await resolveConfigUrls(plain);
   const builderConfigRaw = cfg.toObject();
   const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -413,11 +432,12 @@ router.post('/events/create', requireAccountContext, async (req, res) => {
       signupLimitCountMode: signup.signupLimitCountMode,
       signupCloseAt: signup.signupCloseAt,
       signupPhoneUnique: signup.signupPhoneUnique,
+      hasChildren: signup.hasChildren,
       ticketsEnabled,
       ticketsGateAllowCountEdit,
       checkInToken: ticketsEnabled ? generateToken(32) : undefined,
     });
-    await ensureFormConfig(event._id);
+    await ensureFormConfig(event._id, { hasChildren: signup.hasChildren });
     return res.redirect(`/admin/events/${event._id}/edit`);
   } catch (err) {
     console.error(err);
@@ -453,12 +473,17 @@ router.post('/events/:id/update', requireAccountContext, async (req, res) => {
     event.signupLimitCountMode = signup.signupLimitCountMode;
     event.signupCloseAt = signup.signupCloseAt;
     event.signupPhoneUnique = signup.signupPhoneUnique;
+    const previousHasChildren = event.hasChildren !== false;
+    event.hasChildren = signup.hasChildren;
     event.ticketsEnabled = ticketsEnabled;
     event.ticketsGateAllowCountEdit = ticketsGateAllowCountEdit;
     if (ticketsEnabled && !event.checkInToken) {
       event.checkInToken = generateToken(32);
     }
     await event.save();
+    if (previousHasChildren !== event.hasChildren) {
+      await syncFormConfigForChildren(event._id, event.hasChildren);
+    }
     return res.redirect(`/admin/events/${req.params.id}/edit`);
   } catch (err) {
     console.error(err);
@@ -514,8 +539,9 @@ router.post('/events/:id/form-builder', requireAccountContext, async (req, res) 
     const event = await loadEventScoped(req.params.id, req.session);
     if (!event) return res.status(404).render('error', { title: 'לא נמצא', message: 'אירוע לא קיים' });
 
-    const cfg = await ensureFormConfig(event._id);
-    const parsed = parseFormConfigBody(req.body);
+    const hasChildren = event.hasChildren !== false;
+    const cfg = await ensureFormConfig(event._id, { hasChildren });
+    const parsed = parseFormConfigBody(req.body, { hasChildren });
     cfg.colors = parsed.colors;
     cfg.fields = parsed.fields;
     cfg.customFields = [];
@@ -567,13 +593,16 @@ router.get('/events/:id/registrations', requireAccountContext, async (req, res) 
     if (!eventDoc) return res.status(404).render('error', { title: 'לא נמצא', message: 'אירוע לא קיים' });
     const event = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
 
+    const hasChildren = event.hasChildren !== false;
     const registrations = await Registration.find({ eventId: event._id }).sort({ createdAt: -1 }).lean();
     const formConfig = await FormConfig.findOne({ eventId: event._id }).lean();
-    const customFieldDefs = getCustomFieldDefs(getFieldsForRender(formConfig));
-    const totalChildren = registrations.reduce(
-      (sum, r) => sum + (r.children && r.children.length ? r.children.length : 0),
-      0
-    );
+    const customFieldDefs = getCustomFieldDefs(getFieldsForRender(formConfig, { hasChildren }));
+    const totalChildren = hasChildren
+      ? registrations.reduce(
+          (sum, r) => sum + (r.children && r.children.length ? r.children.length : 0),
+          0
+        )
+      : 0;
 
     const al = await adminLocals(req);
     res.render('admin/registrations', {
@@ -619,24 +648,29 @@ router.get('/events/:id/registrations/export.csv', requireAccountContext, async 
     if (!eventDoc) return res.status(404).send('Not found');
     const event = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
 
+    const hasChildren = event.hasChildren !== false;
     const registrations = await Registration.find({ eventId: event._id }).sort({ createdAt: -1 }).lean();
     const formConfig = await FormConfig.findOne({ eventId: event._id }).lean();
-    const customFieldDefs = getCustomFieldDefs(getFieldsForRender(formConfig));
+    const customFieldDefs = getCustomFieldDefs(getFieldsForRender(formConfig, { hasChildren }));
 
-    const baseHeaders = ['תאריך הרשמה', 'שם פרטי הורה', 'שם משפחה הורה', 'טלפון', 'ילדים (שם וגיל)'];
+    const baseHeaders = ['תאריך הרשמה', 'שם פרטי הורה', 'שם משפחה הורה', 'טלפון'];
+    if (hasChildren) {
+      baseHeaders.push('מספר ילדים', 'ילדים (שם וגיל)');
+    }
     const customHeaders = customFieldDefs.map((f) => f.label);
 
     const rows = registrations.map((r) => {
       const childrenArr = r.children || [];
-      const childrenStr = childrenArr.map((c) => `${c.name} (${c.age})`).join('; ');
       const base = [
         r.createdAt ? new Date(r.createdAt).toISOString() : '',
         r.parentFirstName,
         r.parentLastName,
         r.phone,
-        String(childrenArr.length),
-        childrenStr,
       ];
+      if (hasChildren) {
+        const childrenStr = childrenArr.map((c) => `${c.name} (${c.age})`).join('; ');
+        base.push(String(childrenArr.length), childrenStr);
+      }
       const customVals = customFieldDefs.map((f) => {
         const v = r.customFields && r.customFields[f.id];
         if (f.type === 'checkbox') return v === true ? 'כן' : 'לא';
