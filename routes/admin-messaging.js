@@ -7,6 +7,7 @@ const Registration = require('../models/Registration');
 const { requireAccountContext } = require('../middleware/auth');
 const { uploadFile } = require('../lib/s3');
 const { parseDatetimeLocalInput } = require('../lib/datetimeLocal');
+const { normalizeAudienceMode, parseRegistrationIds } = require('../lib/messageCampaignOptions');
 const {
   cancelCampaign,
   createCampaign,
@@ -72,7 +73,7 @@ async function renderMessagingPage(req, res, eventDoc, opts = {}) {
   const [campaigns, registrations, al] = await Promise.all([
     MessageCampaign.find({ eventId: eventDoc._id }).sort({ createdAt: -1 }).lean(),
     Registration.find({ eventId: eventDoc._id })
-      .select('parentFirstName parentLastName phone createdAt')
+      .select('parentFirstName parentLastName phone phoneNormalized createdAt ticketToken')
       .sort({ createdAt: -1 })
       .lean(),
     adminLocals(req),
@@ -127,6 +128,11 @@ router.post('/admin/events/:id/messaging/start', requireAccountContext, upload.s
       name: (req.body.name || '').trim(),
       publicBaseUrl: publicBaseUrl(req),
       scheduledAt: parseDatetimeLocalInput(req.body.scheduledAt || ''),
+      audienceMode: normalizeAudienceMode(req.body.audienceMode),
+      selectedRegistrationIds: parseRegistrationIds(req.body.registrationIds),
+      attachTicket: req.body.attachTicket === '1' || req.body.attachTicket === 'on' || req.body.attachTicket === true,
+      messageToTicketDelaySeconds: req.body.messageToTicketDelaySeconds,
+      recipientDelaySeconds: req.body.recipientDelaySeconds,
     });
 
     return res.redirect(redirectToCampaign(eventDoc._id, campaign._id));
@@ -158,9 +164,12 @@ router.post('/admin/events/:id/messaging/test', requireAccountContext, upload.si
       messageText: (req.body.messageText || '').trim(),
       imageKey,
       publicBaseUrl: publicBaseUrl(req),
+      attachTicket: req.body.attachTicket === '1' || req.body.attachTicket === 'on' || req.body.attachTicket === true,
     });
 
-    return renderMessagingPage(req, res, eventDoc, { testMessage: 'הודעת הבדיקה נשלחה.' });
+    return renderMessagingPage(req, res, eventDoc, {
+      testMessage: req.body.attachTicket ? 'הודעת הבדיקה והכרטיס נשלחו.' : 'הודעת הבדיקה נשלחה.',
+    });
   } catch (err) {
     console.error('messaging test error', err);
     const eventDoc = await loadEventScoped(req.params.id, req.session).catch(() => null);

@@ -38,6 +38,9 @@ const messageCampaignSchema = new mongoose.Schema(
     startedAt: { type: Date, default: null },
     completedAt: { type: Date, default: null },
     lastError: { type: String, default: '', trim: true },
+    attachTicket: { type: Boolean, default: false },
+    messageToTicketDelaySeconds: { type: Number, min: 1, max: 3600, default: 6 },
+    recipientDelaySeconds: { type: Number, min: 1, max: 3600, default: 6 },
   },
   { timestamps: true }
 );

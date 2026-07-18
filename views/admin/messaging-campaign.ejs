@@ -14,6 +14,15 @@
     <div>
       <h1 class="h4 mb-1">מעקב שליחה: <%= campaign.name || event.name %></h1>
       <div class="text-muted small">אירוע: <%= event.name %></div>
+      <div class="text-muted small">
+        כרטיס מצורף: <%= campaign.attachTicket ? 'כן' : 'לא' %>
+        <% if (campaign.attachTicket) { %>
+          | השהייה הודעה→כרטיס: <%= campaign.messageToTicketDelaySeconds || 6 %> שניות
+          | השהייה לפני נמען הבא: <%= campaign.recipientDelaySeconds || 6 %> שניות
+        <% } else { %>
+          | השהייה בין נמענים: <%= campaign.recipientDelaySeconds || 6 %> שניות
+        <% } %>
+      </div>
       <% if (campaign.scheduledAt) { %>
         <div class="text-muted small">
           תוזמן ל: <%= formatDateTimeIsrael(campaign.scheduledAt) %>
@@ -94,8 +103,11 @@
           <tr>
             <th>שם</th>
             <th>טלפון</th>
+            <th>שלב</th>
             <th>סטטוס</th>
-            <th>נשלח ב</th>
+            <th>הודעה נשלחה</th>
+            <th>כרטיס נשלח</th>
+            <th>הושלם</th>
             <th>שגיאה</th>
           </tr>
         </thead>
@@ -104,7 +116,10 @@
             <tr>
               <td><%= recipient.parentFirstName %> <%= recipient.parentLastName %></td>
               <td dir="ltr"><%= recipient.phoneNormalized %></td>
+              <td><%= recipient.deliveryStep || 'message' %></td>
               <td><%= recipient.status %></td>
+              <td class="text-nowrap"><%= recipient.messageSentAt ? formatDateTimeIsrael(recipient.messageSentAt) : '' %></td>
+              <td class="text-nowrap"><%= recipient.ticketSentAt ? formatDateTimeIsrael(recipient.ticketSentAt) : '' %></td>
               <td class="text-nowrap"><%= recipient.sentAt ? formatDateTimeIsrael(recipient.sentAt) : '' %></td>
               <td><%= recipient.error || '' %></td>
             </tr>
@@ -118,6 +133,7 @@
 <script>
   (function () {
     const statusUrl = '<%= `/admin/events/${event._id}/messaging/campaigns/${campaign._id}/status.json` %>';
+    const attachTicket = <%= campaign.attachTicket ? 'true' : 'false' %>;
     const formatter = new Intl.DateTimeFormat('he-IL', {
       timeZone: 'Asia/Jerusalem',
       dateStyle: 'short',
@@ -139,6 +155,19 @@
       return Number.isNaN(date.getTime()) ? '' : formatter.format(date);
     }
 
+    function renderStep(recipient) {
+      if (recipient.status === 'sent') {
+        return attachTicket ? 'message + ticket' : 'message';
+      }
+      if (recipient.status === 'failed') {
+        return recipient.deliveryStep || 'message';
+      }
+      if (recipient.deliveryStep === 'ticket') {
+        return recipient.messageSentAt ? 'ticket (waiting)' : 'ticket';
+      }
+      return 'message';
+    }
+
     function renderRows(recipients) {
       return recipients.map(function (recipient) {
         const name = `${recipient.parentFirstName || ''} ${recipient.parentLastName || ''}`.trim();
@@ -146,7 +175,10 @@
           <tr>
             <td>${escapeHtml(name)}</td>
             <td dir="ltr">${escapeHtml(recipient.phoneNormalized)}</td>
+            <td>${escapeHtml(renderStep(recipient))}</td>
             <td>${escapeHtml(recipient.status)}</td>
+            <td class="text-nowrap">${escapeHtml(formatDate(recipient.messageSentAt))}</td>
+            <td class="text-nowrap">${escapeHtml(formatDate(recipient.ticketSentAt))}</td>
             <td class="text-nowrap">${escapeHtml(formatDate(recipient.sentAt))}</td>
             <td>${escapeHtml(recipient.error || '')}</td>
           </tr>

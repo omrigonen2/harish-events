@@ -25,8 +25,7 @@
 
   <div class="card admin-card p-4 mb-4">
     <h2 class="h5 mb-3">הודעה חדשה לנרשמים</h2>
-    <form method="post" action="/admin/events/<%= event._id %>/messaging/start" enctype="multipart/form-data"
-          onsubmit="return confirm('להתחיל שליחת הודעות לנרשמים? השליחה תרוץ בתור בקצב הודעה אחת בכל 5 שניות.');">
+    <form id="campaignForm" method="post" action="/admin/events/<%= event._id %>/messaging/start" enctype="multipart/form-data">
       <div class="mb-3">
         <label class="form-label">שם פנימי לקמפיין</label>
         <input class="form-control" name="name" placeholder="לדוגמה: תזכורת לפני האירוע">
@@ -47,13 +46,129 @@
         <label class="form-label">תמונה מצורפת (אופציונלי)</label>
         <input class="form-control" type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml">
         <input type="hidden" name="imageKey" value="">
-        <p class="small text-muted mb-0">אם מצורפת תמונה, היא תישלח עם כל הודעה דרך Wasender.</p>
+        <p class="small text-muted mb-0">אם מצורפת תמונה, היא תישלח עם ההודעה הראשונה דרך Wasender.</p>
       </div>
+
+      <div class="mb-3">
+        <label class="form-label d-block">קהל יעד</label>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="audienceMode" id="audienceAll" value="all" checked>
+          <label class="form-check-label" for="audienceAll">כל הנרשמים לאירוע</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="audienceMode" id="audienceSelected" value="selected">
+          <label class="form-check-label" for="audienceSelected">נרשמים נבחרים בלבד</label>
+        </div>
+      </div>
+
+      <div id="recipientPicker" class="border rounded p-3 mb-3 d-none">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <div class="fw-semibold">בחירת נרשמים</div>
+          <div class="small text-muted">
+            נבחרו: <span id="selectedCount">0</span> |
+            מוצגים: <span id="visibleCount">0</span> |
+            סה״כ: <span id="totalCount"><%= (registrations || []).length %></span>
+          </div>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <input class="form-control" type="search" id="recipientSearch" placeholder="חיפוש לפי שם או טלפון">
+          </div>
+          <div class="col-md-3">
+            <select class="form-select" id="recipientSelectionFilter">
+              <option value="all">הכל</option>
+              <option value="selected">נבחרו בלבד</option>
+              <option value="unselected">לא נבחרו</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <select class="form-select" id="recipientPhoneFilter">
+              <option value="all">כל הטלפונים</option>
+              <option value="valid">טלפון תקין בלבד</option>
+              <option value="missing">ללא טלפון תקין</option>
+            </select>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-sm btn-outline-primary" id="selectVisibleBtn">בחר את המוצגים</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSelectionBtn">נקה בחירה</button>
+        </div>
+        <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+          <table class="table table-sm table-striped align-middle mb-0">
+            <thead class="table-light sticky-top">
+              <tr>
+                <th style="width: 2.5rem;"></th>
+                <th>שם</th>
+                <th>טלפון</th>
+                <th>נרשם</th>
+              </tr>
+            </thead>
+            <tbody id="recipientRows">
+              <% (registrations || []).forEach(function(registration) { %>
+                <tr
+                  data-registration-id="<%= registration._id %>"
+                  data-name="<%= `${registration.parentFirstName || ''} ${registration.parentLastName || ''}`.trim().toLowerCase() %>"
+                  data-phone="<%= String(registration.phone || '').replace(/\s+/g, '') %>"
+                  data-has-valid-phone="<%= registration.phone ? '1' : '0' %>"
+                >
+                  <td>
+                    <input
+                      class="form-check-input recipient-checkbox"
+                      type="checkbox"
+                      name="registrationIds"
+                      value="<%= registration._id %>"
+                    >
+                  </td>
+                  <td><%= registration.parentFirstName %> <%= registration.parentLastName %></td>
+                  <td dir="ltr"><%= registration.phone || '—' %></td>
+                  <td class="text-nowrap"><%= registration.createdAt ? formatDateTimeIsrael(registration.createdAt) : '' %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+        <% if (!(registrations || []).length) { %>
+          <p class="text-muted small mb-0 mt-2">אין נרשמים לאירוע זה.</p>
+        <% } %>
+      </div>
+
+      <% if (event.ticketsEnabled) { %>
+        <div class="mb-3">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="attachTicket" id="attachTicket" value="1">
+            <label class="form-check-label" for="attachTicket">לאחר ההודעה, שלח לכל נמען את הכרטיס האישי שלו (QR)</label>
+          </div>
+        </div>
+      <% } %>
+
+      <div id="messageOnlyDelayFields" class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label" for="recipientDelayOnly">השהייה בין נמענים (שניות)</label>
+          <input class="form-control" type="number" min="1" max="3600" step="1" name="recipientDelaySeconds" id="recipientDelayOnly" value="6">
+        </div>
+      </div>
+
+      <div id="ticketDelayFields" class="row g-3 mb-3 d-none">
+        <div class="col-md-4">
+          <label class="form-label" for="messageToTicketDelay">השהייה בין הודעה לכרטיס (שניות)</label>
+          <input class="form-control" type="number" min="1" max="3600" step="1" name="messageToTicketDelaySeconds" id="messageToTicketDelay" value="6" disabled>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="recipientDelayWithTicket">השהייה לפני הנמען הבא (שניות)</label>
+          <input class="form-control" type="number" min="1" max="3600" step="1" name="recipientDelaySeconds" id="recipientDelayWithTicket" value="6" disabled>
+        </div>
+      </div>
+
       <div class="mb-3">
         <label class="form-label">מועד שליחה (אופציונלי)</label>
         <input class="form-control" type="datetime-local" name="scheduledAt">
         <p class="small text-muted mb-0">ריק = שליחה מיידית. מועד עתידי ישמור את הנמענים עכשיו ויתחיל שליחה בזמן שנבחר.</p>
       </div>
+
+      <div class="alert alert-light border small mb-3" id="campaignSummary">
+        השליחה תרוץ בתור, עם השהייה של 6 שניות בין נמענים.
+      </div>
+
       <button type="submit" class="btn btn-primary">התחלת / תזמון שליחה</button>
     </form>
   </div>
@@ -94,6 +209,14 @@
         <input class="form-control" type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml">
         <input type="hidden" name="imageKey" value="">
       </div>
+      <% if (event.ticketsEnabled) { %>
+        <div class="mb-3">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="attachTicket" id="testAttachTicket" value="1">
+            <label class="form-check-label" for="testAttachTicket">שלח גם כרטיס לדוגמה (דורש בחירת נרשם)</label>
+          </div>
+        </div>
+      <% } %>
       <button type="submit" class="btn btn-outline-primary">שליחת בדיקה</button>
     </form>
   </div>
@@ -109,6 +232,7 @@
             <tr>
               <th>שם</th>
               <th>סטטוס</th>
+              <th>כרטיס</th>
               <th>תזמון</th>
               <th class="text-center">נמענים</th>
               <th class="text-center">נשלחו</th>
@@ -126,6 +250,7 @@
                     <%= campaign.status === 'queued' && campaign.scheduledAt ? 'scheduled' : campaign.status %>
                   </span>
                 </td>
+                <td><%= campaign.attachTicket ? 'כן' : 'לא' %></td>
                 <td class="text-nowrap"><%= campaign.scheduledAt ? formatDateTimeIsrael(campaign.scheduledAt) : 'מיידי' %></td>
                 <td class="text-center"><%= campaign.totalRecipients || 0 %></td>
                 <td class="text-center"><%= campaign.sentCount || 0 %></td>
@@ -142,4 +267,153 @@
     <% } %>
   </div>
 </main>
+
+<script>
+  (function () {
+    const form = document.getElementById('campaignForm');
+    if (!form) return;
+
+    const audienceAll = document.getElementById('audienceAll');
+    const audienceSelected = document.getElementById('audienceSelected');
+    const recipientPicker = document.getElementById('recipientPicker');
+    const recipientSearch = document.getElementById('recipientSearch');
+    const recipientSelectionFilter = document.getElementById('recipientSelectionFilter');
+    const recipientPhoneFilter = document.getElementById('recipientPhoneFilter');
+    const selectVisibleBtn = document.getElementById('selectVisibleBtn');
+    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+    const attachTicket = document.getElementById('attachTicket');
+    const messageOnlyDelayFields = document.getElementById('messageOnlyDelayFields');
+    const ticketDelayFields = document.getElementById('ticketDelayFields');
+    const recipientDelayOnly = document.getElementById('recipientDelayOnly');
+    const messageToTicketDelay = document.getElementById('messageToTicketDelay');
+    const recipientDelayWithTicket = document.getElementById('recipientDelayWithTicket');
+    const campaignSummary = document.getElementById('campaignSummary');
+    const rows = Array.from(document.querySelectorAll('#recipientRows tr'));
+
+    function selectedCheckboxes() {
+      return Array.from(document.querySelectorAll('.recipient-checkbox:checked'));
+    }
+
+    function rowMatchesFilters(row) {
+      const query = (recipientSearch.value || '').trim().toLowerCase();
+      const selectionFilter = recipientSelectionFilter.value;
+      const phoneFilter = recipientPhoneFilter.value;
+      const checkbox = row.querySelector('.recipient-checkbox');
+      const name = row.dataset.name || '';
+      const phone = row.dataset.phone || '';
+      const hasValidPhone = row.dataset.hasValidPhone === '1';
+
+      if (query && !name.includes(query) && !phone.includes(query)) {
+        return false;
+      }
+      if (selectionFilter === 'selected' && !checkbox.checked) return false;
+      if (selectionFilter === 'unselected' && checkbox.checked) return false;
+      if (phoneFilter === 'valid' && !hasValidPhone) return false;
+      if (phoneFilter === 'missing' && hasValidPhone) return false;
+      return true;
+    }
+
+    function refreshRecipientPicker() {
+      const selectedMode = audienceSelected.checked;
+      recipientPicker.classList.toggle('d-none', !selectedMode);
+
+      let visible = 0;
+      rows.forEach(function (row) {
+        const show = !selectedMode || rowMatchesFilters(row);
+        row.classList.toggle('d-none', !show);
+        if (show) visible += 1;
+      });
+
+      document.getElementById('selectedCount').textContent = String(selectedCheckboxes().length);
+      document.getElementById('visibleCount').textContent = String(visible);
+    }
+
+    function syncDelayFields() {
+      const withTicket = Boolean(attachTicket && attachTicket.checked);
+      messageOnlyDelayFields.classList.toggle('d-none', withTicket);
+      ticketDelayFields.classList.toggle('d-none', !withTicket);
+      recipientDelayOnly.disabled = withTicket;
+      messageToTicketDelay.disabled = !withTicket;
+      recipientDelayWithTicket.disabled = !withTicket;
+    }
+
+    function buildSummary() {
+      const audienceLabel = audienceSelected.checked
+        ? `נבחרו ${selectedCheckboxes().length} נרשמים`
+        : `כל ${rows.length} הנרשמים`;
+      const withTicket = Boolean(attachTicket && attachTicket.checked);
+
+      if (withTicket) {
+        campaignSummary.textContent =
+          `${audienceLabel}. לכל נמען: הודעה, המתנה של ${messageToTicketDelay.value || 6} שניות, כרטיס QR, ואז ${recipientDelayWithTicket.value || 6} שניות לפני הנמען הבא.`;
+      } else {
+        campaignSummary.textContent =
+          `${audienceLabel}. השליחה תרוץ בתור, עם השהייה של ${recipientDelayOnly.value || 6} שניות בין נמענים.`;
+      }
+    }
+
+    function confirmSubmit(event) {
+      refreshRecipientPicker();
+      buildSummary();
+
+      if (audienceSelected.checked && selectedCheckboxes().length === 0) {
+        event.preventDefault();
+        alert('יש לבחור לפחות נרשם אחד לשליחה.');
+        return false;
+      }
+
+      const withTicket = Boolean(attachTicket && attachTicket.checked);
+      const summary = campaignSummary.textContent;
+      return confirm(`להתחיל שליחת הודעות?\n\n${summary}`);
+    }
+
+    audienceAll.addEventListener('change', function () {
+      refreshRecipientPicker();
+      buildSummary();
+    });
+    audienceSelected.addEventListener('change', function () {
+      refreshRecipientPicker();
+      buildSummary();
+    });
+    recipientSearch.addEventListener('input', refreshRecipientPicker);
+    recipientSelectionFilter.addEventListener('change', refreshRecipientPicker);
+    recipientPhoneFilter.addEventListener('change', refreshRecipientPicker);
+    form.addEventListener('change', function (event) {
+      if (event.target.classList.contains('recipient-checkbox')) {
+        refreshRecipientPicker();
+        buildSummary();
+      }
+    });
+    if (attachTicket) {
+      attachTicket.addEventListener('change', function () {
+        syncDelayFields();
+        buildSummary();
+      });
+    }
+    [recipientDelayOnly, messageToTicketDelay, recipientDelayWithTicket].forEach(function (input) {
+      if (input) input.addEventListener('input', buildSummary);
+    });
+    selectVisibleBtn.addEventListener('click', function () {
+      rows.forEach(function (row) {
+        if (!row.classList.contains('d-none')) {
+          row.querySelector('.recipient-checkbox').checked = true;
+        }
+      });
+      refreshRecipientPicker();
+      buildSummary();
+    });
+    clearSelectionBtn.addEventListener('click', function () {
+      document.querySelectorAll('.recipient-checkbox').forEach(function (checkbox) {
+        checkbox.checked = false;
+      });
+      refreshRecipientPicker();
+      buildSummary();
+    });
+    form.addEventListener('submit', confirmSubmit);
+
+    syncDelayFields();
+    refreshRecipientPicker();
+    buildSummary();
+  })();
+</script>
 <%- include('../partials/footer') %>

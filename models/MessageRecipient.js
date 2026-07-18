@@ -26,10 +26,19 @@ const messageRecipientSchema = new mongoose.Schema(
     attempts: { type: Number, min: 0, default: 0 },
     error: { type: String, default: '', trim: true },
     sentAt: { type: Date, default: null },
+    deliveryStep: {
+      type: String,
+      enum: ['message', 'ticket'],
+      default: 'message',
+    },
+    messageSentAt: { type: Date, default: null },
+    ticketSentAt: { type: Date, default: null },
+    nextActionAt: { type: Date, default: null, index: true },
   },
   { timestamps: true }
 );
 
+messageRecipientSchema.index({ campaignId: 1, status: 1, nextActionAt: 1, createdAt: 1 });
 messageRecipientSchema.index({ campaignId: 1, status: 1, createdAt: 1 });
 messageRecipientSchema.index({ campaignId: 1, phoneNormalized: 1 }, { unique: true });
 
