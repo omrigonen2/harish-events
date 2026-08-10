@@ -92,6 +92,12 @@ function parseSignupFields(body) {
   };
 }
 
+function parseLogoMaxHeight(raw) {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return 120;
+  return Math.min(400, Math.max(60, Math.round(value)));
+}
+
 function parseFormConfigBody(body, { hasChildren = true } = {}) {
   let fields = [];
   if (body.fieldsJson) {
@@ -111,6 +117,7 @@ function parseFormConfigBody(body, { hasChildren = true } = {}) {
       button: body.colorButton || '#0d6efd',
     },
     fields: sanitizeFieldsFromBuilder(fields, { hasChildren }),
+    logoMaxHeight: parseLogoMaxHeight(body.logoMaxHeight),
   };
 }
 
@@ -560,6 +567,7 @@ router.post('/events/:id/form-builder', requireAccountContext, async (req, res) 
     const parsed = parseFormConfigBody(req.body, { hasChildren });
     cfg.colors = parsed.colors;
     cfg.fields = parsed.fields;
+    cfg.logoMaxHeight = parsed.logoMaxHeight;
     cfg.customFields = [];
 
     // Images are uploaded via AJAX first; the resulting S3 keys arrive as

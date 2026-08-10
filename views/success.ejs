@@ -6,6 +6,7 @@
   var btn = c.button || primary;
   var bgImg = config.backgroundImage ? ('url(' + config.backgroundImage + ')') : 'none';
   var overlay = typeof overlayRgba !== 'undefined' ? overlayRgba : 'rgba(248,249,250,0.82)';
+  var logoMaxHeight = config.logoMaxHeight || 120;
 %>
 <%- include('partials/header', { title: title, bodyClass: 'public-form-page' }) %>
 <style>
@@ -39,7 +40,7 @@
     color: var(--cf-text);
   }
   .success-page-card .text-success { color: #198754 !important; }
-  .form-logo { max-height: 120px; max-width: 100%; object-fit: contain; }
+  .form-logo { max-height: <%= logoMaxHeight %>px; max-width: 100%; object-fit: contain; }
 </style>
 <div class="success-page-wrap">
   <div class="success-page-overlay" aria-hidden="true"></div>

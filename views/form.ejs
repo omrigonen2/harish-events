@@ -5,6 +5,7 @@
   var text = c.text || '#212529';
   var btn = c.button || primary;
   var bgImg = config.backgroundImage ? ('url(' + config.backgroundImage + ')') : 'none';
+  var logoMaxHeight = config.logoMaxHeight || 120;
   var sortedFields = (fields || []).slice().sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
   var childrenField = sortedFields.filter(function(f) { return f.type === 'children'; })[0];
   var childNameLbl = childrenField && childrenField.childNameLabel ? childrenField.childNameLabel : 'שם הילד/ה';
@@ -40,7 +41,7 @@
     filter: brightness(0.92);
     color: #fff;
   }
-  .form-logo { max-height: 120px; max-width: 100%; object-fit: contain; }
+  .form-logo { max-height: <%= logoMaxHeight %>px; max-width: 100%; object-fit: contain; }
 </style>
 <div class="public-form-wrap py-4">
   <div class="container" style="max-width: 40rem;">

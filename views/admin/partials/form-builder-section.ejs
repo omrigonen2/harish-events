@@ -3,6 +3,7 @@
   var cf = config.fields || [];
   var rawCfg = typeof configRaw !== 'undefined' ? configRaw : config;
   var eventHasChildren = !(event && event.hasChildren === false);
+  var logoMaxHeight = rawCfg.logoMaxHeight || config.logoMaxHeight || 120;
 %>
 <style>
 .image-drop-zone {
@@ -95,6 +96,34 @@
           </div>
           <div class="mt-2 d-flex gap-2 align-items-center">
             <button type="button" class="btn btn-sm btn-outline-danger" id="clearLogoBtn" style="<%= config.logoUrl ? '' : 'display:none' %>">מחק לוגו</button>
+          </div>
+          <div class="mt-3">
+            <label class="form-label" for="logoMaxHeight">גודל לוגו (גובה מקסימלי)</label>
+            <div class="d-flex flex-wrap align-items-center gap-3">
+              <input
+                type="range"
+                class="form-range flex-grow-1"
+                min="60"
+                max="400"
+                step="10"
+                id="logoMaxHeightRange"
+                value="<%= logoMaxHeight %>"
+              >
+              <div class="input-group" style="width: 7rem;">
+                <input
+                  type="number"
+                  class="form-control"
+                  name="logoMaxHeight"
+                  id="logoMaxHeight"
+                  min="60"
+                  max="400"
+                  step="10"
+                  value="<%= logoMaxHeight %>"
+                >
+                <span class="input-group-text">px</span>
+              </div>
+            </div>
+            <p class="small text-muted mb-0 mt-1">שולט בגובה התצוגה של הלוגו בטופס ההרשמה ובדף ההצלחה. ברירת מחדל: 120px.</p>
           </div>
         </div>
 
@@ -531,5 +560,36 @@
       function (msg) { hideOverlay(); alert(msg || 'שגיאה בהעלאה'); }
     );
   });
+
+  (function syncLogoSizeControls() {
+    var range = document.getElementById('logoMaxHeightRange');
+    var input = document.getElementById('logoMaxHeight');
+    var preview = document.getElementById('logoPreview');
+    if (!range || !input) return;
+
+    function clamp(value) {
+      var size = Number(value);
+      if (!Number.isFinite(size)) size = 120;
+      return Math.min(400, Math.max(60, Math.round(size / 10) * 10));
+    }
+
+    function apply(value) {
+      var size = clamp(value);
+      range.value = String(size);
+      input.value = String(size);
+      if (preview) preview.style.maxHeight = size + 'px';
+    }
+
+    range.addEventListener('input', function () {
+      apply(range.value);
+    });
+    input.addEventListener('input', function () {
+      apply(input.value);
+    });
+    input.addEventListener('change', function () {
+      apply(input.value);
+    });
+    apply(input.value || range.value);
+  })();
 })();
 </script>
