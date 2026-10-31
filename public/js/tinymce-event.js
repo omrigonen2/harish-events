@@ -12,9 +12,9 @@
       height: 420,
       base_url: 'https://cdn.jsdelivr.net/npm/tinymce@7',
       suffix: '.min',
-      plugins: 'lists link autolink code table image help wordcount',
+      plugins: 'lists link autolink code table image media help wordcount',
       toolbar:
-        'undo redo | blocks | bold italic underline strikethrough | alignright aligncenter alignleft | bullist numlist | link image table | code removeformat',
+        'undo redo | blocks | bold italic underline strikethrough | alignright aligncenter alignleft | bullist numlist | link image media table | code removeformat',
       menubar: false,
       automatic_uploads: true,
       images_upload_handler: function (blobInfo, progress) {
@@ -50,7 +50,7 @@
         });
       },
       content_style:
-        'body { font-family: system-ui, "Segoe UI", Arial, sans-serif; font-size: 16px; direction: rtl; line-height: 1.6; }',
+        'body { font-family: system-ui, "Segoe UI", Arial, sans-serif; font-size: 16px; direction: rtl; line-height: 1.6; } iframe { max-width: 100%; }',
       directionality: 'rtl',
       setup: function (editor) {
         editor.on('change input undo redo', function () {

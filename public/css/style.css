@@ -64,6 +64,15 @@ body {
   height: auto;
   border-radius: 0.375rem;
 }
+.event-description iframe {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 0.375rem;
+}
 .event-description ul,
 .event-description ol {
   padding-right: 1.25rem;
