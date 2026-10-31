@@ -1,40 +1,19 @@
-<nav class="navbar navbar-dark admin-navbar mb-4">
-  <div class="container-fluid">
-    <span class="navbar-brand mb-0 h1 fs-5"><a class="text-white text-decoration-none" href="/admin">לוח בקרה</a></span>
-    <div class="d-flex gap-2 flex-wrap align-items-center">
-      <% if (sessionUser.role !== 'superadmin' && sessionUser.activeAccountName) { %>
-        <span class="text-light small me-1"><%= sessionUser.activeAccountName %></span>
-      <% } %>
-
-      <% if (memberships && memberships.length > 1) { %>
-        <div class="dropdown">
-          <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-            החלף חשבון
-          </button>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <% memberships.forEach(function(m) { %>
-              <li>
-                <form method="post" action="/admin/set-active-account" class="d-inline w-100">
-                  <input type="hidden" name="accountId" value="<%= m.accountId._id || m.accountId %>">
-                  <button type="submit" class="dropdown-item<%= String(m.accountId._id || m.accountId) === sessionUser.activeAccountId ? ' active' : '' %>">
-                    <%= m.accountId.name || m.accountId %>
-                  </button>
-                </form>
-              </li>
-            <% }); %>
-          </ul>
-        </div>
-      <% } %>
-
-      <a class="btn btn-outline-light btn-sm" href="/" target="_blank" rel="noopener">דף הבית</a>
-      <a class="btn btn-outline-light btn-sm" href="/admin/events">אירועים</a>
-      <% if (sessionUser.role === 'superadmin') { %>
-        <a class="btn btn-outline-light btn-sm" href="/admin/accounts">חשבונות</a>
-        <a class="btn btn-outline-light btn-sm" href="/admin/integrations/wasender">Wasender</a>
-      <% } %>
-      <form action="/admin/logout" method="post" class="d-inline">
-        <button type="submit" class="btn btn-warning btn-sm">יציאה</button>
-      </form>
-    </div>
-  </div>
-</nav>
+<% const path = locals.currentPath || ''; const navUser = locals.sessionUser || {}; const organizations = locals.navAccounts || []; %>
+<aside class="admin-sidebar" aria-label="ניווט ראשי">
+  <a href="/admin" class="admin-brand"><span class="brand-symbol" aria-hidden="true">א</span><span>אומני חריש<small>ניהול אירועים וקהילה</small></span></a>
+  <div class="nav-caption">סביבת עבודה</div>
+  <nav class="admin-main-nav">
+    <a href="/admin" class="<%= path === '/admin' || path === '/admin/' ? 'is-active' : '' %>"><span aria-hidden="true">◷</span> סקירה כללית</a>
+    <a href="/admin/events" class="<%= path.startsWith('/admin/events') ? 'is-active' : '' %>"><span aria-hidden="true">▦</span> אירועים</a>
+    <% if (navUser.role === 'superadmin') { %><a href="/admin/settings" class="<%= path.includes('/settings') || path.includes('/accounts') || path.includes('/integrations') ? 'is-active' : '' %>"><span aria-hidden="true">⚙</span> הגדרות וארגונים</a><% } %>
+  </nav>
+  <div class="admin-sidebar-bottom"><strong><%= navUser.displayName || 'מנהל' %></strong><small><%= navUser.role === 'superadmin' ? 'מנהל מערכת' : 'צוות האירועים' %></small><form action="/admin/logout" method="post"><button class="btn btn-sm btn-light w-100 mt-3">יציאה מהמערכת</button></form></div>
+</aside>
+<header class="admin-topbar">
+  <details class="mobile-navigation"><summary>תפריט</summary><nav><a href="/admin">סקירה כללית</a><a href="/admin/events">אירועים</a><% if (navUser.role === 'superadmin') { %><a href="/admin/settings">הגדרות</a><% } %><form action="/admin/logout" method="post"><button class="btn btn-light btn-sm">יציאה</button></form></nav></details>
+  <% if (navUser.role === 'superadmin' && organizations.length) { %>
+    <form method="post" action="/admin/set-active-account" class="organization-switch"><label for="organization-select">ארגון</label><select id="organization-select" name="accountId" onchange="this.form.requestSubmit()"><option value="all">כל הארגונים</option><% organizations.forEach(a => { %><option value="<%= a._id %>" <%= String(a._id) === navUser.activeAccountId ? 'selected' : '' %>><%= a.name %></option><% }); %></select></form>
+  <% } else { %><span class="text-muted"><%= navUser.activeAccountName || 'ניהול אירועים' %></span><% } %>
+  <% if (memberships && memberships.length > 1) { %><form method="post" action="/admin/set-active-account"><select aria-label="החלפת ארגון" name="accountId" onchange="this.form.requestSubmit()"><% memberships.forEach(m => { %><option value="<%= m.accountId._id %>" <%= String(m.accountId._id) === navUser.activeAccountId ? 'selected' : '' %>><%= m.accountId.name %></option><% }); %></select></form><% } %>
+  <a href="/" target="_blank" rel="noopener" class="topbar-public-link">פתיחת האתר ↗</a>
+</header>

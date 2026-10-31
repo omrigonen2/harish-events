@@ -1,164 +1,44 @@
-<%- include('../partials/header', { title: title }) %>
+<%- include('../partials/header', { title }) %>
 <%- include('partials/admin-navbar', { sessionUser: locals.sessionUser || {}, memberships: locals.memberships || [] }) %>
-<div class="container-fluid px-3 px-md-4 mb-3">
-  <div class="d-flex gap-2 flex-wrap">
-    <% var previewReg = '/register/' + encodeURIComponent(editEvent.slug || ''); %>
-    <a class="btn btn-outline-primary btn-sm" href="<%= previewReg %>" target="_blank" rel="noopener">תצוגה מקדימה</a>
-    <a class="btn btn-outline-success btn-sm" href="/admin/events/<%= editEvent._id %>/registrations">נרשמים</a>
-    <a class="btn btn-outline-info btn-sm" href="/admin/events/<%= editEvent._id %>/messaging">שליחת הודעות</a>
-  </div>
-</div>
 <main class="container pb-5">
-  <% if (formError) { %>
-    <div class="alert alert-danger"><%= formError %></div>
+  <%- include('partials/event-header', { event: editEvent, activeTab }) %>
+  <% if(formError || formBuilderError){ %><div class="alert alert-danger"><%= formError || formBuilderError %></div><% } %>
+  <% if(saved){ %><div class="alert alert-success" role="status">השינויים נשמרו בהצלחה.</div><% } %>
+  <% if(activeTab === 'overview'){ %>
+    <div class="stat-grid"><div class="stat-card"><small>הרשמות פעילות</small><strong><%= stats.registrations %></strong><p><%= stats.cancelled %> הרשמות מבוטלות</p></div><div class="stat-card"><small>משתתפים צפויים</small><strong><%= stats.participants %></strong><p>כולל הנרשמים הראשיים</p></div><div class="stat-card"><small>משתתפים שנכנסו</small><strong><%= stats.checkedInPeople %></strong><p><%= stats.checkedIn %> כרטיסים מומשו</p></div><div class="stat-card"><small>כרטיסים עם כשל בשליחה</small><strong><%= stats.failedDeliveries %></strong><p>לבדיקה ברשימת ההרשמות</p></div></div>
+    <div class="form-layout"><div><section class="admin-panel"><h2>מצב ההרשמה</h2><p class="section-help">פרסום העמוד ומצב ההרשמה מנוהלים בנפרד.</p><dl class="row mb-0"><dt class="col-sm-4">פרסום העמוד</dt><dd class="col-sm-8"><%= editEvent.archivedAt ? 'בארכיון' : editEvent.isActive ? 'מפורסם' : 'טיוטה' %></dd><dt class="col-sm-4">מכסה</dt><dd class="col-sm-8"><%= editEvent.signupLimit == null ? 'ללא מגבלה' : editEvent.signupLimit + ' ' + limitLabel(editEvent.signupLimitCountMode) %></dd><dt class="col-sm-4">סגירת הרשמה</dt><dd class="col-sm-8"><%= editEvent.signupCloseAt ? formatDateTimeIsrael(editEvent.signupCloseAt) : 'עד מועד האירוע או מילוי המכסה' %></dd></dl><a class="btn btn-outline-primary mt-3" href="?tab=registration">עריכת הגדרות ההרשמה</a></section><section class="admin-panel"><h2>גישה מהירה</h2><div class="d-flex gap-2 flex-wrap mt-3"><a class="btn btn-light" href="/admin/events/<%= editEvent._id %>/registrations">ניהול הרשמות</a><a class="btn btn-light" href="/admin/events/<%= editEvent._id %>/messaging">שליחת הודעה</a><a class="btn btn-light" href="?tab=tickets">כרטיסים וכניסה</a></div></section></div><aside><section class="admin-panel"><h2>ארכיון האירוע</h2><p class="section-help">העברה לארכיון סוגרת את העמוד ושומרת את כל ההרשמות וההיסטוריה. שליחות עתידיות ייעצרו.</p><form method="post" action="/admin/events/<%= editEvent._id %>/archive"><input type="hidden" name="restore" value="<%= editEvent.archivedAt ? '1':'0' %>"><button class="btn btn-light"><%= editEvent.archivedAt ? 'שחזור מהארכיון' : 'העברה לארכיון' %></button></form></section></aside></div>
   <% } %>
-
-  <div class="row justify-content-center">
-    <div class="col-xl-10">
-      <h1 class="h4 mb-4">עריכת אירוע: <%= editEvent.name %></h1>
-
-      <div class="card admin-card p-4 mb-4">
-        <h2 class="h5 mb-3">פרטי האירוע</h2>
-        <form method="post" action="/admin/events/<%= editEvent._id %>/update">
-          <div class="mb-3">
-            <label class="form-label">שם האירוע *</label>
-            <input class="form-control" name="name" required value="<%= editEvent.name %>">
-          </div>
-          <div class="mb-3">
-            <label class="form-label" for="eventDescription">תיאור האירוע</label>
-            <p class="small text-muted mb-2">עורך טקסט עשיר (TinyMCE) — עיצוב, קישורים וטבלאות.</p>
-            <textarea id="eventDescription" name="description" class="form-control" rows="10"><%- (locals.editDescriptionHtml != null ? locals.editDescriptionHtml : '') %></textarea>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">מועד</label>
-            <input class="form-control" type="datetime-local" name="date"
-              value="<%= typeof eventDateInput !== 'undefined' ? eventDateInput : '' %>">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">כתובת קבועה (slug)</label>
-            <input class="form-control" name="slug" value="<%= editEvent.slug %>">
-            <p class="small text-muted mb-0">כתובת הציבור לטופס: <code class="user-select-all"><%= typeof baseUrl !== 'undefined' ? baseUrl : '' %>/register/<%= encodeURIComponent(editEvent.slug || '') %></code></p>
-          </div>
-          <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" name="isActive" id="isActive" <%= editEvent.isActive ? 'checked' : '' %>>
-            <label class="form-check-label" for="isActive">אירוע פעיל (מוצג לציבור)</label>
-          </div>
-
-          <hr class="my-4">
-          <h3 class="h6">הרשמה</h3>
-          <div class="form-check mb-3">
-            <input type="hidden" name="hasChildrenPresent" value="1">
-            <input class="form-check-input" type="checkbox" name="hasChildren" id="hasChildrenEdit"
-              <%= editEvent.hasChildren !== false ? 'checked' : '' %>>
-            <label class="form-check-label" for="hasChildrenEdit">באירוע משתתפים ילדים</label>
-            <p class="small text-muted mb-0">בטל אם זה אירוע למבוגרים בלבד. שדה ה&quot;ילדים&quot; ועמודות הילדים יוסתרו אוטומטית.</p>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">מגבלת הרשמות</label>
-            <input class="form-control" type="number" name="signupLimit" min="0" step="1" placeholder="ריק = ללא הגבלה"
-              value="<%= editEvent.signupLimit != null && editEvent.signupLimit !== '' ? editEvent.signupLimit : '' %>">
-            <p class="small text-muted mb-0">השאירו ריק כדי לאפשר הרשמות בלי מכסה.</p>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">ספירה למכסה</label>
-            <select class="form-select" name="signupLimitCountMode" id="signupLimitCountModeEdit">
-              <option value="families" <%= (editEvent.signupLimitCountMode || 'families') === 'families' ? 'selected' : '' %>>משפחות (הרשמה אחת לכל טופס)</option>
-              <option value="participants" data-needs-children="true" <%= editEvent.signupLimitCountMode === 'participants' ? 'selected' : '' %>>משתתפים (מבוגר אחד + כל ילד נספר)</option>
-              <option value="children" data-needs-children="true" <%= editEvent.signupLimitCountMode === 'children' ? 'selected' : '' %>>ילדים בלבד (ספירת כל ילד בטפסים)</option>
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">סגירת הרשמות</label>
-            <input class="form-control" type="datetime-local" name="signupCloseAt"
-              value="<%= typeof signupCloseAtInput !== 'undefined' ? signupCloseAtInput : '' %>">
-            <p class="small text-muted mb-0">ריק = ההרשמה לא נסגרת לפי זמן (רק לפי מכסה / כיבוי אירוע).</p>
-          </div>
-          <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" name="signupPhoneUnique" id="signupPhoneUnique"
-              <%= editEvent.signupPhoneUnique ? 'checked' : '' %>>
-            <label class="form-check-label" for="signupPhoneUnique">לאפשר הרשמה אחת בלבד לכל מספר טלפון</label>
-            <p class="small text-muted mb-0">כאשר האפשרות פעילה, ניסיון הרשמה נוסף עם אותו מספר יקבל הודעת שגיאה.</p>
-          </div>
-          <div class="form-check mb-3">
-            <input type="hidden" name="ticketCapIncludesRegistrantPresent" value="1">
-            <input class="form-check-input" type="checkbox" name="ticketCapIncludesRegistrant" id="ticketCapIncludesRegistrant"
-              <%= editEvent.ticketCapIncludesRegistrant ? 'checked' : '' %>>
-            <label class="form-check-label" for="ticketCapIncludesRegistrant">מגבלת אנשים בכרטיס כוללת את הנרשם הראשי</label>
-            <p class="small text-muted mb-0">רלוונטי רק כאשר נקבעה מגבלה ברשימת האנשים בטופס. לדוגמה, &quot;5&quot; ייצור כרטיס שמכיל הורה + 4 נוספים.</p>
-          </div>
-
-          <hr class="my-4">
-          <h3 class="h6">כרטיסים וכניסה</h3>
-          <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" name="ticketsEnabled" id="ticketsEnabled"
-              <%= editEvent.ticketsEnabled ? 'checked' : '' %>>
-            <label class="form-check-label" for="ticketsEnabled">שליחת כרטיס בוואטסאפ עם QR</label>
-          </div>
-          <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" name="ticketsGateAllowCountEdit" id="ticketsGateAllowCountEdit"
-              <%= editEvent.ticketsGateAllowCountEdit ? 'checked' : '' %>>
-            <label class="form-check-label" for="ticketsGateAllowCountEdit">לאפשר לצוות הסריקה לשנות כמות מבוגרים וילדים לפני צריבת הכרטיס</label>
-            <p class="small text-muted mb-0">כאשר האפשרות כבויה, הסריקה מציגה את הכמות המקורית והאישור צורב אותה ללא שינוי.</p>
-          </div>
-          <% if (editEvent.ticketsEnabled && typeof gateUrl !== 'undefined' && gateUrl) { %>
-            <div class="mb-3">
-              <label class="form-label">קישור סריקה לצוות האירוע</label>
-              <div class="input-group">
-                <input class="form-control" id="gateUrl" value="<%= gateUrl %>" readonly dir="ltr">
-                <button class="btn btn-outline-secondary" type="button"
-                  onclick="navigator.clipboard && navigator.clipboard.writeText(document.getElementById('gateUrl').value)">העתקה</button>
-              </div>
-              <p class="small text-muted mb-2">זהו קישור ללא התחברות. שתפו רק עם מי שמנהל כניסה לאירוע.</p>
-              <button type="submit" form="rotateTicketLinkForm" class="btn btn-outline-danger btn-sm">יצירת קישור חדש</button>
-            </div>
-          <% } %>
-
-          <div class="d-flex gap-2 flex-wrap">
-            <button type="submit" class="btn btn-primary">שמירה</button>
-            <a href="/admin/events" class="btn btn-outline-secondary">חזרה לרשימת האירועים</a>
-          </div>
-        </form>
-        <% if (editEvent.ticketsEnabled && typeof gateUrl !== 'undefined' && gateUrl) { %>
-          <form id="rotateTicketLinkForm" method="post" action="/admin/events/<%= editEvent._id %>/tickets/rotate"
-                onsubmit="return confirm('ליצור קישור סריקה חדש? הקישור הישן יפסיק לעבוד.');"></form>
-        <% } %>
-      </div>
-
-      <% if (builderConfig) { %>
-        <%- include('partials/form-builder-section', {
-          event: editEvent,
-          config: builderConfig,
-          configRaw: builderConfigRaw,
-          formBuilderError: typeof formBuilderError !== 'undefined' ? formBuilderError : null
-        }) %>
-        <p class="mb-4">
-          <a href="/admin/events" class="btn btn-outline-secondary">חזרה לרשימת האירועים</a>
-        </p>
-      <% } %>
-    </div>
-  </div>
+  <% if(activeTab === 'page'){ %>
+    <form method="post" action="/admin/events/<%= editEvent._id %>/page" data-dirty-track id="event-page-form">
+      <div class="form-layout"><div>
+        <section class="admin-panel"><h2>פרטי האירוע</h2><p class="section-help">המידע שמוצג בעמוד האירוע ובהודעות לנרשמים.</p><div class="mb-3"><label class="form-label" for="eventName">שם האירוע</label><input class="form-control" id="eventName" name="name" value="<%= editEvent.name %>" required maxlength="200"></div><div class="row g-3"><div class="col-md-6"><label class="form-label" for="eventDate">מועד האירוע</label><input class="form-control" type="datetime-local" id="eventDate" name="date" value="<%= eventDateInput %>"></div><div class="col-md-6"><label class="form-label" for="eventLocation">מקום האירוע</label><input class="form-control" id="eventLocation" name="location" value="<%= editEvent.location || '' %>" placeholder="לדוגמה: בית אומני חריש"></div></div></section>
+        <section class="admin-panel"><h2>תוכן העמוד</h2><p class="section-help">תיאור הפעילות, תמונות וסרטוני YouTube.</p><label class="visually-hidden" for="eventDescription">תיאור האירוע</label><textarea id="eventDescription" name="description" class="form-control" rows="12"><%= editEvent.description || '' %></textarea></section>
+        <section class="admin-panel"><h2>תמונות ומיתוג</h2><p class="section-help">תמונת הכותרת שייכת לאירוע. לוגו המארגן מוצג בנפרד.</p>
+        <% [['logoKey','logoUrl','תמונת כותרת'],['organizerLogoKey','organizerLogoUrl','לוגו המארגן'],['backgroundImageKey','backgroundImage','תמונת רקע']].forEach(([input,key,label]) => { %><div class="mb-4"><label class="form-label" for="<%= input %>-file"><%= label %></label><div class="image-upload" data-image-upload><input type="hidden" name="<%= input %>" value="<%= builderConfigRaw[key] || '' %>"><img src="<%= builderConfig[key] || '' %>" alt="<%= label %>" <%- !builderConfig[key] ? 'hidden' : '' %>><input type="file" class="form-control" id="<%= input %>-file" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"><div class="d-flex justify-content-between align-items-center mt-2"><small data-upload-status class="text-muted">ניתן גם לגרור או להדביק תמונה. הכיווץ אוטומטי.</small><button type="button" class="btn btn-sm btn-light" data-clear-image>הסרה</button></div></div></div><% }); %>
+        <label class="form-label" for="logoMaxHeight">גובה תמונת הכותרת בעמוד</label><div class="input-group" style="max-width:180px"><input class="form-control" type="number" min="60" max="400" name="logoMaxHeight" id="logoMaxHeight" value="<%= builderConfigRaw.logoMaxHeight || 120 %>"><span class="input-group-text">px</span></div></section>
+        <section class="admin-panel"><h2>צבעי העמוד</h2><div class="row g-3 mt-1"><% [['Primary','primary','צבע ראשי','#0d6efd'],['Background','background','רקע','#f8f9fa'],['Text','text','טקסט','#212529'],['Button','button','כפתור','#0d6efd']].forEach(([suffix,key,label,fallback])=>{ %><div class="col-6 col-md-3"><label class="form-label" for="color<%= suffix %>"><%= label %></label><input type="color" class="form-control form-control-color w-100" name="color<%= suffix %>" id="color<%= suffix %>" value="<%= builderConfig.colors?.[key] || fallback %>"></div><% }); %></div></section>
+      </div><aside class="side-note"><section class="admin-panel"><h2>פרסום וקישור</h2><p class="section-help">עמוד מפורסם יכול להישאר זמין גם כשההרשמה סגורה.</p><div class="form-check form-switch mb-4"><input class="form-check-input" type="checkbox" name="isActive" id="publishEvent" <%= editEvent.isActive?'checked':'' %>><label class="form-check-label" for="publishEvent">העמוד מפורסם</label></div><label class="form-label" for="eventSlug">סיומת הקישור</label><input class="form-control mb-2" id="eventSlug" name="slug" value="<%= editEvent.slug %>" dir="auto"><p class="form-text">שינוי הסיומת משנה את הקישור להרשמה.</p><div class="event-preview-card mt-4"><% if(builderConfig.logoUrl){%><img src="<%= builderConfig.logoUrl %>" alt=""><% } %><strong class="d-block mt-3"><%= editEvent.name %></strong><p class="small text-muted mt-2 mb-0"><%= editEvent.date?formatDateTimeIsrael(editEvent.date):'מועד יתווסף בהמשך' %></p></div><a class="btn btn-light w-100 mt-3" href="/admin/events/<%= editEvent._id %>/preview" target="_blank" rel="noopener">פתיחת תצוגה מקדימה</a></section></aside></div>
+      <div class="form-savebar"><span data-save-state class="dirty-indicator">כל השינויים נשמרו</span><button class="btn btn-primary">שמירת עמוד האירוע</button></div>
+    </form>
+    <script src="https://cdn.jsdelivr.net/npm/tinymce@7/tinymce.min.js" crossorigin="anonymous"></script><script src="/js/tinymce-event.js"></script><script src="/js/event-builder.js" defer></script>
+  <% } %>
+  <% if(activeTab === 'registration'){ %>
+    <form method="post" action="/admin/events/<%= editEvent._id %>/registration-settings" id="registration-settings-form" data-dirty-track>
+      <div class="form-layout"><div><section class="admin-panel"><h2>מדיניות הרשמה ומכסה</h2><p class="section-help">בחרו מה נספר במכסה. הרשמה אחת יכולה לכלול כמה משתתפים.</p>
+        <div class="form-check form-switch mb-4"><input type="hidden" name="hasChildrenPresent" value="1"><input class="form-check-input" type="checkbox" name="hasChildren" id="hasChildrenEdit" <%= editEvent.hasChildren !== false?'checked':'' %>><label class="form-check-label" for="hasChildrenEdit">האירוע כולל ילדים</label><p class="form-text">רשימת משתתפים נוספים יכולה להתקיים גם באירוע למבוגרים.</p></div>
+        <div class="row g-3 mb-3"><div class="col-md-6"><label class="form-label" for="signupLimit">מכסת הרשמה</label><input class="form-control" type="number" min="0" step="1" id="signupLimit" name="signupLimit" placeholder="ללא מגבלה" value="<%= editEvent.signupLimit ?? '' %>"></div><div class="col-md-6"><label class="form-label" for="countMode">יחידת הספירה</label><select class="form-select" id="countMode" name="signupLimitCountMode"><% [['families','הרשמות'],['participants','כל המשתתפים, כולל הנרשם הראשי'],['children','משתתפים נוספים בלבד']].forEach(([value,label])=>{ %><option value="<%= value %>" <%= (editEvent.signupLimitCountMode||'families')===value?'selected':'' %>><%= label %></option><% }); %></select></div></div>
+        <div class="row g-3 mb-4"><div class="col-md-6"><label class="form-label" for="signupOpenAt">פתיחת הרשמה</label><input class="form-control" type="datetime-local" id="signupOpenAt" name="signupOpenAt" value="<%= signupOpenAtInput %>"><p class="form-text">ריק: הרשמה מיידית לאחר פרסום.</p></div><div class="col-md-6"><label class="form-label" for="signupCloseAt">סגירת הרשמה</label><input class="form-control" type="datetime-local" id="signupCloseAt" name="signupCloseAt" value="<%= signupCloseAtInput %>"><p class="form-text">ההרשמה תיסגר גם במילוי המכסה או במועד האירוע.</p></div></div>
+        <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="signupPaused" name="signupPaused" <%= editEvent.signupPaused?'checked':'' %>><label class="form-check-label" for="signupPaused">סגירת הרשמה ידנית</label></div>
+        <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="signupPhoneUnique" id="signupPhoneUnique" <%= editEvent.signupPhoneUnique?'checked':'' %>><label class="form-check-label" for="signupPhoneUnique">הרשמה פעילה אחת לכל מספר טלפון</label></div>
+        <div class="form-check"><input type="hidden" name="ticketCapIncludesRegistrantPresent" value="1"><input class="form-check-input" type="checkbox" name="ticketCapIncludesRegistrant" id="ticketCapIncludesRegistrant" <%= editEvent.ticketCapIncludesRegistrant?'checked':'' %>><label class="form-check-label" for="ticketCapIncludesRegistrant">מגבלת המשתתפים בכל הרשמה כוללת את הנרשם הראשי</label></div>
+      </section><section class="admin-panel"><div class="d-flex justify-content-between gap-3 align-items-center mb-2"><h2 class="mb-0">שדות טופס ההרשמה</h2><button class="btn btn-sm btn-light" type="button" id="addFieldBtn">+ הוספת שדה</button></div><p class="section-help">פתחו שדה לעריכה. ניתן לשנות סדר בגרירה או בעזרת החצים.</p><%- include('partials/fields-editor', { fields: builderConfig.fields }) %></section></div>
+      <aside class="side-note"><section class="admin-panel"><h2>מה ההבדל?</h2><p><strong>הרשמה</strong> היא פנייה אחת עם איש קשר ראשי.</p><p><strong>משתתפים</strong> הם כל האנשים שמגיעים, כולל איש הקשר.</p><p>לדוגמה: הורה ושני ילדים הם הרשמה אחת ו־3 משתתפים.</p><hr><p class="mb-0">כדי להגביל ל־200 מקומות באולם, בחרו מכסה 200 ויחידת ספירה ״כל המשתתפים״.</p></section></aside></div>
+      <div class="form-savebar"><span data-save-state class="dirty-indicator">כל השינויים נשמרו</span><button class="btn btn-primary">שמירת הגדרות ההרשמה</button></div>
+    </form><script src="/js/event-builder.js" defer></script>
+  <% } %>
+  <% if(activeTab === 'tickets'){ %>
+    <div class="form-layout"><div><form method="post" action="/admin/events/<%= editEvent._id %>/ticket-settings" data-dirty-track><section class="admin-panel"><h2>כרטיסים אישיים וכניסה</h2><p class="section-help">כל הרשמה מקבלת כרטיס קבוצתי אחד. מצב השליחה ומימוש הכרטיס מוצגים בנפרד.</p><div class="form-check form-switch mb-4"><input class="form-check-input" type="checkbox" name="ticketsEnabled" id="ticketsEnabled" <%= editEvent.ticketsEnabled?'checked':'' %>><label class="form-check-label" for="ticketsEnabled">הפקת כרטיס QR ושליחתו בוואטסאפ לאחר הרשמה</label></div><div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="ticketsGateAllowCountEdit" id="ticketsGateAllowCountEdit" <%= editEvent.ticketsGateAllowCountEdit?'checked':'' %>><label class="form-check-label" for="ticketsGateAllowCountEdit">צוות הכניסה יכול לעדכן את כמות הנכנסים לפני האישור</label></div><p class="form-text mb-0">אפשר לשלוח כרטיס שוב מתוך פרטי ההרשמה.</p></section><div class="form-savebar"><span data-save-state class="dirty-indicator">כל השינויים נשמרו</span><button class="btn btn-primary">שמירת הגדרות הכרטיסים</button></div></form>
+    <% if(gateUrl){ %><section class="admin-panel mt-4"><h2>מסך צוות הכניסה</h2><p class="section-help">הקישור מאפשר לצוות לסרוק כרטיסים ולאשר הגעה.</p><div class="d-flex gap-2 flex-wrap"><a class="btn btn-primary" href="<%= gateUrl %>" target="_blank" rel="noopener">פתיחת מסך הסריקה ↗</a><button class="btn btn-light" data-copy="<%= gateUrl %>">העתקת קישור לצוות</button></div><details class="mt-4"><summary class="small text-muted">החלפת קישור הסריקה</summary><form method="post" action="/admin/events/<%= editEvent._id %>/tickets/rotate" class="mt-3" onsubmit="return confirm('הקישור הקודם של צוות הכניסה יפסיק לעבוד. להמשיך?')"><button class="btn btn-sm btn-outline-danger">יצירת קישור צוות חדש</button></form></details></section><% } %></div><aside><section class="admin-panel"><h2>נתוני כניסה</h2><p class="section-help">כמות האנשים שאושרה בפועל בכניסה.</p><strong class="display-6"><%= stats.checkedInPeople %></strong><p class="small text-muted mt-2"><%= stats.checkedIn %> כרטיסים מומשו</p></section></aside></div>
+  <% } %>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/tinymce@7/tinymce.min.js" crossorigin="anonymous"></script>
-<script src="/js/tinymce-event.js"></script>
-<script>
-(function () {
-  var hc = document.getElementById('hasChildrenEdit');
-  var mode = document.getElementById('signupLimitCountModeEdit');
-  if (!hc || !mode) return;
-  function sync() {
-    var enabled = hc.checked;
-    Array.from(mode.options).forEach(function (opt) {
-      if (opt.dataset.needsChildren === 'true') {
-        opt.hidden = !enabled;
-        opt.disabled = !enabled;
-      }
-    });
-    if (!enabled && mode.selectedOptions[0] && mode.selectedOptions[0].dataset.needsChildren === 'true') {
-      mode.value = 'families';
-    }
-  }
-  hc.addEventListener('change', sync);
-  sync();
-})();
-</script>
 <%- include('../partials/footer') %>

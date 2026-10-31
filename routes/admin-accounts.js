@@ -5,8 +5,14 @@ const User = require('../models/User');
 const AccountMembership = require('../models/AccountMembership');
 const { requireSuperAdmin } = require('../middleware/auth');
 const { checkConnection, getSettings, saveSettings } = require('../lib/wasender');
+const { getPresignedUrl } = require('../lib/s3');
+const { adminLocals } = require('../lib/adminContext');
 
 const router = express.Router();
+router.use(async (req, res, next) => {
+  if (req.session?.role === 'superadmin') Object.assign(res.locals, await adminLocals(req));
+  next();
+});
 
 function slugify(text) {
   return text
@@ -157,6 +163,7 @@ router.get('/accounts/:accountId/edit', requireSuperAdmin, async (req, res) => {
   res.render('admin/account-edit', {
     title: `עריכת חשבון — ${account.name}`,
     account,
+    accountLogoUrl: account.logoUrl ? await getPresignedUrl(account.logoUrl) : '',
     formError: null,
     ...sessionUserLocals(req),
   });
@@ -180,6 +187,8 @@ router.post('/accounts/:accountId/update', requireSuperAdmin, async (req, res) =
 
     account.name = name;
     account.slug = await uniqueAccountSlug(slugify(slugInput || name), account._id);
+    if (Object.prototype.hasOwnProperty.call(req.body, 'logoKey')) account.logoUrl = String(req.body.logoKey || '').trim();
+    if (/^#[0-9a-f]{6}$/i.test(req.body.brandColor || '')) account.brandColor = req.body.brandColor;
     await account.save();
     return res.redirect(`/admin/accounts/${account._id}/edit`);
   } catch (err) {

@@ -8,18 +8,18 @@
   <div class="row g-4">
     <div class="col-lg-4">
       <div class="card admin-card p-4 mb-4">
-        <h2 class="h5 mb-3">חשבון חדש</h2>
+        <h2 class="h5 mb-3">ארגון חדש</h2>
         <form method="post" action="/admin/accounts/create">
           <div class="mb-3">
-            <label class="form-label">שם החשבון *</label>
+            <label class="form-label">שם הארגון *</label>
             <input class="form-control" name="name" required>
           </div>
-          <button type="submit" class="btn btn-primary">יצירת חשבון</button>
+          <button type="submit" class="btn btn-primary">יצירת ארגון</button>
         </form>
       </div>
     </div>
     <div class="col-lg-8">
-      <h2 class="h5 mb-3">כל החשבונות</h2>
+      <h2 class="h5 mb-3">כל הארגונים</h2>
       <div class="table-responsive">
         <table class="table table-bordered bg-white">
           <thead class="table-light">
@@ -43,7 +43,7 @@
               </tr>
             <% }); %>
             <% if (!accounts.length) { %>
-              <tr><td colspan="4" class="text-center text-muted">אין חשבונות</td></tr>
+              <tr><td colspan="4" class="text-center text-muted">אין ארגונים</td></tr>
             <% } %>
           </tbody>
         </table>

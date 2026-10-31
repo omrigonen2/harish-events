@@ -46,12 +46,15 @@
 <div class="public-form-wrap py-4">
   <div class="container" style="max-width: 40rem;">
     <div class="public-form-card p-4 p-md-5">
+      <% if (config.organizerLogoUrl) { %><div class="text-center mb-3"><img src="<%= config.organizerLogoUrl %>" alt="לוגו המארגן" style="max-height:64px;max-width:100%"></div><% } %>
       <% if (config.logoUrl) { %>
         <div class="text-center mb-4">
           <img src="<%- config.logoUrl %>" alt="" class="form-logo">
         </div>
       <% } %>
       <h1 class="h4 mb-2 text-center"><%= event.name %></h1>
+      <% if (event.location) { %><p class="text-center small text-muted"><%= event.location %></p><% } %>
+      <% if (locals.preview) { %><div class="alert alert-info">תצוגה מקדימה למנהל. שליחת הטופס מושבתת כאן.</div><% } %>
       <% if (typeof descriptionHtml !== 'undefined' && descriptionHtml) { %>
         <div class="event-description small mb-0"><%- descriptionHtml %></div>
       <% } %>
@@ -74,7 +77,7 @@
       <% } %>
 
       <% if (sa.open) { %>
-      <form action="/register/<%= encodeURIComponent(event.slug) %>" method="post" novalidate id="registration-form">
+      <form action="<%= locals.preview ? '#' : '/register/' + encodeURIComponent(event.slug) %>" method="post" novalidate id="registration-form">
         <% sortedFields.forEach(function(f) { %>
           <% if (f.type === 'parent_first') { %>
             <div class="mb-3">
@@ -187,7 +190,7 @@
         <% }); %>
 
         <div class="d-grid gap-2 mt-4">
-          <button type="submit" class="btn btn-lg btn-cf-submit">שליחת טופס</button>
+          <button type="submit" class="btn btn-lg btn-cf-submit" <%= locals.preview ? 'disabled' : '' %>>שליחת טופס</button>
         </div>
       </form>
       <% } %>

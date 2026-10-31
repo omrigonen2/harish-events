@@ -1,0 +1,8 @@
+<% const eventBase = '/admin/events/' + event._id; const currentTab = locals.activeTab || 'overview'; const state = eventState(event); const signup = registrationState(event); %>
+<div class="event-workspace-header">
+  <a class="breadcrumb-link" href="/admin/events">אירועים /</a>
+  <div class="page-heading"><div><div class="d-flex gap-2 mb-2"><span class="status-pill <%= state.tone %>"><%= state.label %></span><span class="status-pill <%= signup.open ? 'success' : 'secondary' %>"><%= signup.label %></span></div><h1><%= event.name %></h1><p class="text-muted mb-0"><%= event.date ? formatDateTimeIsrael(event.date) : 'טרם נקבע מועד' %><%= event.location ? ' · ' + event.location : '' %></p></div><div class="heading-actions"><a class="btn btn-outline-primary" href="<%= eventBase %>/preview" target="_blank" rel="noopener">תצוגה מקדימה ↗</a><button type="button" class="btn btn-light" data-copy="<%= '/register/' + encodeURIComponent(event.slug) %>">העתקת קישור</button><form method="post" action="<%= eventBase %>/duplicate"><button class="btn btn-light">שכפול</button></form></div></div>
+  <nav class="event-tabs" aria-label="ניהול האירוע">
+    <% [['overview','סקירה',eventBase],['page','עמוד האירוע',eventBase+'/edit?tab=page'],['registration','הגדרות הרשמה',eventBase+'/edit?tab=registration'],['registrations','הרשמות ומשתתפים',eventBase+'/registrations'],['tickets','כרטיסים וכניסה',eventBase+'/edit?tab=tickets'],['messaging','הודעות',eventBase+'/messaging']].forEach(([key,label,url]) => { %><a href="<%= url %>" class="<%= currentTab === key ? 'is-active' : '' %>" <%- currentTab === key ? 'aria-current="page"' : '' %>><%= label %></a><% }); %>
+  </nav>
+</div>

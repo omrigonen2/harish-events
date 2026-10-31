@@ -1,38 +1,11 @@
-<%- include('../partials/header', { title: title }) %>
+<%- include('../partials/header', { title }) %>
 <%- include('partials/admin-navbar', { sessionUser: locals.sessionUser || {}, memberships: locals.memberships || [] }) %>
+<% const upcoming=events.filter(e=>!e.archivedAt&&e.isActive&&e.date&&new Date(e.date)>new Date()).sort((a,b)=>new Date(a.date)-new Date(b.date)); const total=Object.values(stats).reduce((a,s)=>({registrations:a.registrations+s.registrations,participants:a.participants+s.participants,failed:a.failed+s.failedDeliveries}),{registrations:0,participants:0,failed:0}); const undated=events.filter(e=>!e.archivedAt&&!e.date); %>
 <main class="container pb-5">
-  <h2 class="h4 mb-3">סקירה</h2>
-  <p class="text-muted">רשימת האירועים ומספר הנרשמים לכל אירוע.</p>
-  <div class="table-responsive">
-    <table class="table table-striped admin-card rounded overflow-hidden">
-      <thead class="table-dark">
-        <tr>
-          <th>שם אירוע</th>
-          <% if (locals.sessionUser && locals.sessionUser.role === 'superadmin') { %><th>חשבון</th><% } %>
-          <th>סטטוס</th>
-          <th>נרשמים</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% events.forEach(function(ev) { %>
-          <tr>
-            <td><%= ev.name %></td>
-            <% if (locals.sessionUser && locals.sessionUser.role === 'superadmin') { %><td><%= ev.accountId && ev.accountId.name ? ev.accountId.name : '' %></td><% } %>
-            <td><%= ev.isActive ? 'פעיל' : 'לא פעיל' %></td>
-            <td><%= countMap[String(ev._id)] || 0 %></td>
-            <td class="text-nowrap">
-              <a href="/register/<%= encodeURIComponent(ev.slug || '') %>" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">טופס</a>
-              <a href="/admin/events/<%= ev._id %>/edit" class="btn btn-sm btn-outline-secondary">עריכה</a>
-              <a href="/admin/events/<%= ev._id %>/registrations" class="btn btn-sm btn-outline-success">נרשמים</a>
-            </td>
-          </tr>
-        <% }); %>
-        <% if (!events.length) { %>
-          <tr><td colspan="<%= locals.sessionUser && locals.sessionUser.role === 'superadmin' ? 5 : 4 %>" class="text-center text-muted">אין אירועים. <a href="/admin/events">צרו אירוע</a></td></tr>
-        <% } %>
-      </tbody>
-    </table>
-  </div>
+  <div class="page-heading"><div><h1>סקירה כללית</h1><p class="text-muted mb-0">תמונת המצב של הפעילות והאירועים הקרובים.</p></div><a class="btn btn-primary" href="/admin/events">ניהול האירועים</a></div>
+  <div class="stat-grid"><div class="stat-card"><small>אירועים קרובים</small><strong><%= upcoming.length %></strong><p>מפורסמים ומוכנים לפעילות</p></div><div class="stat-card"><small>סה״כ הרשמות</small><strong><%= total.registrations %></strong><p>הרשמות שאינן מבוטלות</p></div><div class="stat-card"><small>סה״כ משתתפים רשומים</small><strong><%= total.participants %></strong><p>כולל הנרשמים הראשיים</p></div><div class="stat-card"><small>כרטיסים עם כשל בשליחה</small><strong><%= total.failed %></strong><p>ניתן לבדוק ולשלוח מחדש באירוע</p></div></div>
+  <section class="admin-panel"><div class="d-flex align-items-center justify-content-between mb-4"><h2 class="mb-0">הפעילות הקרובה</h2><a class="breadcrumb-link" href="/admin/events">לכל האירועים ←</a></div>
+  <% if(!upcoming.length){ %><div class="empty-state"><h2>אין כרגע אירועים קרובים שפורסמו</h2><p>האירועים והטיוטות שלכם זמינים ברשימת האירועים.</p></div><% } else { %><div class="table-responsive"><table class="table"><thead><tr><th>האירוע</th><th>מועד</th><th>הרשמות</th><th>משתתפים</th><th></th></tr></thead><tbody><% upcoming.forEach(e=>{const s=stats[String(e._id)];%><tr><td><a href="/admin/events/<%= e._id %>" class="event-name"><%= e.name %></a></td><td><%= formatDateTimeIsrael(e.date) %></td><td><%= s.registrations %></td><td><%= s.participants %></td><td><a class="btn btn-sm btn-outline-primary" href="/admin/events/<%= e._id %>">לניהול האירוע</a></td></tr><% });%></tbody></table></div><% } %></section>
+  <% if(undated.length){ %><section class="admin-panel"><h2>אירועים שממתינים להשלמת מועד</h2><p class="section-help">השלימו תאריך כדי שאפשר יהיה לנהל פתיחה וסגירה של ההרשמה.</p><div class="d-flex gap-2 flex-wrap"><% undated.forEach(e=>{ %><a href="/admin/events/<%= e._id %>/edit?tab=page" class="btn btn-light"><%= e.name %></a><% });%></div></section><% } %>
 </main>
 <%- include('../partials/footer') %>

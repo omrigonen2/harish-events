@@ -52,6 +52,7 @@ const formConfigSchema = new mongoose.Schema(
     colors: { type: colorsSchema, default: () => ({}) },
     backgroundImage: { type: String, default: '' },
     logoUrl: { type: String, default: '' },
+    organizerLogoUrl: { type: String, default: '' },
     /** Max display height of the logo on the public form (px) */
     logoMaxHeight: { type: Number, default: 120, min: 60, max: 400 },
     /** All form fields including parent/phone/children — canonical */

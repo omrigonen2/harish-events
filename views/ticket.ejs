@@ -10,7 +10,7 @@
       שם: <%= ((registration.parentFirstName || '') + ' ' + (registration.parentLastName || '')).trim() || 'ללא שם' %>
     </p>
 
-    <img src="<%= qrUrl %>" alt="QR code" class="img-fluid mx-auto mb-3" style="max-width: 18rem;">
+    <% if (registration.status === 'cancelled') { %><div class="alert alert-warning">ההרשמה בוטלה. הכרטיס אינו מאפשר כניסה.</div><% } else { %><img src="<%= qrUrl %>" alt="QR code" class="img-fluid mx-auto mb-3" style="max-width: 18rem;"><% } %>
     <% if (registration.ticketCheckedInAt) { %>
       <div class="alert alert-success mb-0">
         הכרטיס אושר בכניסה: <%= formatDateTimeIsrael(registration.ticketCheckedInAt) %>

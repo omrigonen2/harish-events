@@ -12,6 +12,11 @@ const eventSchema = new mongoose.Schema(
     description: { type: String, default: '' },
     date: { type: Date, default: null },
     isActive: { type: Boolean, default: true },
+    archivedAt: { type: Date, default: null },
+    signupPaused: { type: Boolean, default: false },
+    capacityRevision: { type: Number, default: 0 },
+    signupOpenAt: { type: Date, default: null },
+    location: { type: String, default: '', trim: true },
     slug: { type: String, required: true, unique: true, trim: true },
     /** null = no cap */
     signupLimit: { type: Number, default: null },

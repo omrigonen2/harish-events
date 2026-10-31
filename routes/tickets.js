@@ -39,7 +39,7 @@ router.get('/ticket/:ticketToken', async (req, res) => {
 
 router.get('/ticket/:ticketToken/qr.png', async (req, res) => {
   try {
-    const registration = await Registration.findOne({ ticketToken: req.params.ticketToken }).select('_id ticketToken').lean();
+    const registration = await Registration.findOne({ ticketToken: req.params.ticketToken, status: { $ne: 'cancelled' } }).select('_id ticketToken').lean();
     if (!registration) return res.status(404).send('Not found');
 
     const png = await buildTicketQrPngBuffer(registration.ticketToken);
@@ -54,14 +54,14 @@ router.get('/ticket/:ticketToken/qr.png', async (req, res) => {
 
 router.get('/gate/:checkInToken', async (req, res) => {
   try {
-    const event = await Event.findOne({ checkInToken: req.params.checkInToken, ticketsEnabled: true }).lean();
+    const event = await Event.findOne({ checkInToken: req.params.checkInToken, ticketsEnabled: true, archivedAt: null }).lean();
     if (!event) {
       return res.status(404).render('error', { title: 'לא נמצא', message: 'קישור הסריקה אינו תקין או שהכרטיסים כבויים.' });
     }
 
     const formConfig = await FormConfig.findOne({ eventId: event._id }).lean();
     const allFields = getFieldsForRender(formConfig, { hasChildren: event.hasChildren !== false });
-    const peopleField = allFields.find((f) => f.type === 'children') || null;
+    const peopleField = event.hasChildren !== false ? allFields.find((f) => f.type === 'children') || null : null;
 
     return res.render('gate', {
       title: `סריקת כרטיסים — ${event.name}`,

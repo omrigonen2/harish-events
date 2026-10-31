@@ -55,6 +55,7 @@
       setup: function (editor) {
         editor.on('change input undo redo', function () {
           editor.save();
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
         });
       },
     });

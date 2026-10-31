@@ -13,6 +13,8 @@ const adminMessagingRoutes = require('./routes/admin-messaging');
 const ticketRoutes = require('./routes/tickets');
 const { formatDateTimeIsrael } = require('./lib/datetimeLocal');
 const messageQueue = require('./lib/messageQueue');
+const { eventState, registrationState, limitLabel } = require('./lib/eventStatus');
+const { additionalParticipants, participantCounts, deliveryState } = require('./lib/participants');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,6 +24,7 @@ app.set('trust proxy', 1);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.locals.formatDateTimeIsrael = formatDateTimeIsrael;
+Object.assign(app.locals, { eventState, registrationState, limitLabel, additionalParticipants, participantCounts, deliveryState });
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -49,6 +52,10 @@ app.use(
   })
 );
 
+app.use((req, res, next) => {
+  res.locals.currentPath = req.path;
+  next();
+});
 app.use('/', publicRoutes);
 app.use('/', ticketRoutes);
 app.use('/admin', adminRoutes);
@@ -71,6 +78,9 @@ mongoose
     });
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server listening on port ${PORT}`);
+      require('./lib/migrateParticipants').migrateParticipants()
+        .then(result => console.log('Participant migration:', JSON.stringify(result)))
+        .catch(err => console.error('Participant migration failed:', err.message));
       // Optional one-time maintenance runs after listening and never blocks startup.
       // Matching the original key makes restarts safe after a successful update.
       if (process.env.EVENT_LOGO_OPTIMIZATION) {

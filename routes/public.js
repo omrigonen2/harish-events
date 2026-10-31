@@ -17,6 +17,7 @@ const {
   ensureEventCheckInToken,
 } = require('../lib/tickets');
 const { normalizePhone, sendTicket } = require('../lib/wasender');
+const { activeRegistrationFilter } = require('../lib/participants');
 
 const router = express.Router();
 
@@ -181,24 +182,25 @@ function validateSubmission(fieldDefs, parentFirstName, parentLastName, phone, c
   return errors;
 }
 
-async function phoneAlreadyRegistered(eventId, phoneNormalized) {
+async function phoneAlreadyRegistered(eventId, phoneNormalized, session) {
   if (!phoneNormalized) return false;
-  const direct = await Registration.findOne({ eventId, phoneNormalized }).select('_id').lean();
+  const direct = await Registration.findOne({ eventId, phoneNormalized, ...activeRegistrationFilter }).select('_id').session(session || null).lean();
   if (direct) return true;
 
   // Legacy registrations created before phoneNormalized existed are checked lazily.
   const legacy = await Registration.find({
     eventId,
+    ...activeRegistrationFilter,
     $or: [
       { phoneNormalized: { $exists: false } },
       { phoneNormalized: '' },
       { phoneNormalized: null },
     ],
-  }).select('_id phone').lean();
+  }).select('_id phone').session(session || null).lean();
   return legacy.some((registration) => normalizePhone(registration.phone) === phoneNormalized);
 }
 
-async function renderRegistrationForm(res, status, { event, formErrors = [], oldBody = {}, childRows, configDoc }) {
+async function renderRegistrationForm(res, status, { event, formErrors = [], oldBody = {}, childRows, configDoc, preview = false }) {
   const rows = childRows || [{ name: '', age: '' }];
   const cfg = configDoc !== undefined ? configDoc : await FormConfig.findOne({ eventId: event._id }).lean();
   const hasChildren = event.hasChildren !== false;
@@ -211,7 +213,7 @@ async function renderRegistrationForm(res, status, { event, formErrors = [], old
   };
   base.fields = fields;
   const effective = await resolveConfigUrls(base);
-  const signupAvailability = await getSignupAvailability(event);
+  const signupAvailability = preview ? { open: true } : await getSignupAvailability(event);
   return res.status(status).render('form', {
     title: `הרשמה — ${event.name}`,
     event,
@@ -222,6 +224,7 @@ async function renderRegistrationForm(res, status, { event, formErrors = [], old
     oldBody,
     childRows: rows,
     signupAvailability,
+    preview,
   });
 }
 
@@ -251,7 +254,7 @@ router.get('/register/:eventId', async (req, res) => {
   try {
     const { eventId } = req.params;
     const event = await findEventByParam(eventId);
-    if (!event || !event.isActive) {
+    if (!event || !event.isActive || event.archivedAt) {
       return res.status(404).render('error', { title: 'לא נמצא', message: 'האירוע לא נמצא או אינו פעיל' });
     }
 
@@ -271,7 +274,7 @@ router.post('/register/:eventId', async (req, res) => {
   try {
     const { eventId } = req.params;
     const event = await findEventByParam(eventId);
-    if (!event || !event.isActive) {
+    if (!event || !event.isActive || event.archivedAt) {
       return res.status(404).render('error', { title: 'לא נמצא', message: 'האירוע לא נמצא או אינו פעיל' });
     }
 
@@ -297,7 +300,7 @@ router.post('/register/:eventId', async (req, res) => {
     const peopleField = fieldDefs.find((f) => f.type === 'children') || null;
     const collectAge = peopleField ? peopleField.collectAge !== false : true;
     const childrenRaw = parseChildrenFromBody(req.body);
-    const children = normalizeChildren(childrenRaw, { collectAge });
+    const children = peopleField ? normalizeChildren(childrenRaw, { collectAge }) : [];
     const customFields = parseCustomFieldsFromBody(req.body, customDefsOnly);
 
     const errors = validateSubmission(
@@ -333,25 +336,35 @@ router.post('/register/:eventId', async (req, res) => {
       }
     }
 
-    const closedAgain = await getSignupAvailability(event);
+    const incoming = event.signupLimitCountMode === 'participants' ? 1 + children.length : event.signupLimitCountMode === 'children' ? children.length : 1;
+    const closedAgain = await getSignupAvailability(event, { incoming });
     if (!closedAgain.open) {
       return renderRegistrationForm(res, 403, {
         event,
         configDoc,
+        formErrors: [closedAgain.message],
         childRows: childRowsFromOld(req.body),
         oldBody: req.body,
       });
     }
 
-    const registration = await Registration.create({
-      eventId: event._id,
-      parentFirstName,
-      parentLastName,
-      phone,
-      phoneNormalized,
-      children,
-      customFields,
-    });
+    let registration;
+    try {
+      await mongoose.connection.transaction(async session => {
+        // Serialize capacity and duplicate-phone decisions for this event across instances.
+        const locked = await Event.findOneAndUpdate({ _id: event._id, isActive: true, archivedAt: null }, { $inc: { capacityRevision: 1 } }, { session, new: true }).lean();
+        const availability = locked ? await getSignupAvailability(locked, { incoming, session }) : { open: false, message: 'ההרשמה אינה זמינה כרגע.' };
+        if (!availability.open) throw Object.assign(new Error(availability.message), { signupError: true });
+        if (locked.signupPhoneUnique && phoneNormalized && await phoneAlreadyRegistered(event._id, phoneNormalized, session)) throw Object.assign(new Error('מספר הטלפון כבר רשום לאירוע זה.'), { signupError: true });
+        [registration] = await Registration.create([{
+          eventId: event._id, parentFirstName, parentLastName, phone, phoneNormalized, children,
+          participants: children.map(person => ({ name: person.name, age: collectAge ? person.age : null, category: hasChildren ? 'child' : 'general' })), customFields,
+        }], { session });
+      });
+    } catch (error) {
+      if (!error.signupError) throw error;
+      return renderRegistrationForm(res, 400, { event, configDoc, formErrors: [error.message], oldBody: req.body, childRows: childRowsFromOld(req.body) });
+    }
 
     let ticketSent = false;
     if (event.ticketsEnabled) {
@@ -433,3 +446,4 @@ router.get('/success', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.renderRegistrationForm = renderRegistrationForm;

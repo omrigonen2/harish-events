@@ -4,6 +4,7 @@ const Event = require('../models/Event');
 const AccountMembership = require('../models/AccountMembership');
 const MessageCampaign = require('../models/MessageCampaign');
 const Registration = require('../models/Registration');
+const { adminLocals: sharedAdminLocals } = require('../lib/adminContext');
 const { requireAccountContext } = require('../middleware/auth');
 const { uploadFile } = require('../lib/s3');
 const { parseDatetimeLocalInput } = require('../lib/datetimeLocal');
@@ -38,19 +39,7 @@ async function loadEventScoped(eventId, session) {
 }
 
 async function adminLocals(req) {
-  const locals = {
-    sessionUser: {
-      displayName: req.session.displayName || '',
-      role: req.session.role,
-      activeAccountId: req.session.activeAccountId || null,
-      activeAccountName: req.session.activeAccountName || null,
-    },
-    memberships: [],
-  };
-  if (req.session.role !== 'superadmin') {
-    locals.memberships = await AccountMembership.find({ userId: req.session.userId }).populate('accountId').lean();
-  }
-  return locals;
+  return sharedAdminLocals(req);
 }
 
 async function ensureCampaignScoped(campaignId, eventId, session) {
@@ -72,7 +61,7 @@ function publicBaseUrl(req) {
 async function renderMessagingPage(req, res, eventDoc, opts = {}) {
   const [campaigns, registrations, al] = await Promise.all([
     MessageCampaign.find({ eventId: eventDoc._id }).sort({ createdAt: -1 }).lean(),
-    Registration.find({ eventId: eventDoc._id })
+    Registration.find({ eventId: eventDoc._id, status: { $ne: 'cancelled' } })
       .select('parentFirstName parentLastName phone phoneNormalized createdAt ticketToken')
       .sort({ createdAt: -1 })
       .lean(),
@@ -167,11 +156,13 @@ router.post('/admin/events/:id/messaging/test', requireAccountContext, upload.si
       attachTicket: req.body.attachTicket === '1' || req.body.attachTicket === 'on' || req.body.attachTicket === true,
     });
 
+    if ((req.get('accept') || '').includes('application/json')) return res.json({ ok: true, message: 'הודעת הבדיקה נשלחה למספר הבדיקה.' });
     return renderMessagingPage(req, res, eventDoc, {
       testMessage: req.body.attachTicket ? 'הודעת הבדיקה והכרטיס נשלחו.' : 'הודעת הבדיקה נשלחה.',
     });
   } catch (err) {
     console.error('messaging test error', err);
+    if ((req.get('accept') || '').includes('application/json')) return res.status(400).json({ ok: false, error: err.message || 'שליחת הבדיקה נכשלה' });
     const eventDoc = await loadEventScoped(req.params.id, req.session).catch(() => null);
     if (!eventDoc) return res.status(500).render('error', { title: 'שגיאה', message: err.message || 'שגיאת שרת' });
     return renderMessagingPage(req, res, eventDoc, {

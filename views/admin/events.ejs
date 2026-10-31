@@ -1,146 +1,18 @@
-<%- include('../partials/header', { title: title }) %>
+<%- include('../partials/header', { title }) %>
 <%- include('partials/admin-navbar', { sessionUser: locals.sessionUser || {}, memberships: locals.memberships || [] }) %>
 <main class="container pb-5">
-  <% if (formError) { %>
-    <div class="alert alert-danger"><%= formError %></div>
-  <% } %>
-
-  <div class="row g-4">
-    <div class="col-lg-5">
-      <div class="card admin-card p-4 mb-4">
-        <h2 class="h5 mb-3">אירוע חדש</h2>
-        <form method="post" action="/admin/events/create">
-          <div class="mb-3">
-            <label class="form-label">שם האירוע *</label>
-            <input class="form-control" name="name" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label" for="eventDescription">תיאור האירוע</label>
-            <p class="small text-muted mb-2">עורך טקסט עשיר (TinyMCE) — עיצוב, קישורים וטבלאות.</p>
-            <textarea id="eventDescription" name="description" class="form-control" rows="10"></textarea>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">מועד</label>
-            <input class="form-control" type="datetime-local" name="date">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">כתובת קבועה (slug) — אופציונלי</label>
-            <input class="form-control" name="slug" placeholder="אוטומטי משם האירוע">
-          </div>
-          <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" name="isActive" id="isActiveNew" checked>
-            <label class="form-check-label" for="isActiveNew">אירוע פעיל</label>
-          </div>
-
-          <hr class="my-4">
-          <h3 class="h6">הרשמה</h3>
-          <div class="form-check mb-3">
-            <input type="hidden" name="hasChildrenPresent" value="1">
-            <input class="form-check-input" type="checkbox" name="hasChildren" id="hasChildrenNew" checked>
-            <label class="form-check-label" for="hasChildrenNew">באירוע משתתפים ילדים</label>
-            <p class="small text-muted mb-0">בטל אם זה אירוע למבוגרים בלבד.</p>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">מגבלת הרשמות</label>
-            <input class="form-control" type="number" name="signupLimit" min="0" step="1" placeholder="ריק = ללא הגבלה">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">ספירה למכסה</label>
-            <select class="form-select" name="signupLimitCountMode" id="signupLimitCountModeNew">
-              <option value="families" selected>משפחות (הרשמה אחת לכל טופס)</option>
-              <option value="participants" data-needs-children="true">משתתפים (מבוגר אחד + כל ילד נספר)</option>
-              <option value="children" data-needs-children="true">ילדים בלבד (ספירת כל ילד בטפסים)</option>
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">סגירת הרשמות</label>
-            <input class="form-control" type="datetime-local" name="signupCloseAt">
-          </div>
-          <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" name="signupPhoneUnique" id="signupPhoneUniqueNew">
-            <label class="form-check-label" for="signupPhoneUniqueNew">לאפשר הרשמה אחת בלבד לכל מספר טלפון</label>
-            <p class="small text-muted mb-0">כאשר האפשרות פעילה, ניסיון הרשמה נוסף עם אותו מספר יקבל הודעת שגיאה.</p>
-          </div>
-          <div class="form-check mb-3">
-            <input type="hidden" name="ticketCapIncludesRegistrantPresent" value="1">
-            <input class="form-check-input" type="checkbox" name="ticketCapIncludesRegistrant" id="ticketCapIncludesRegistrantNew">
-            <label class="form-check-label" for="ticketCapIncludesRegistrantNew">מגבלת אנשים בכרטיס כוללת את הנרשם הראשי</label>
-            <p class="small text-muted mb-0">רלוונטי רק כאשר נקבעה מגבלה ברשימת האנשים בטופס.</p>
-          </div>
-
-          <% if (locals.sessionUser && locals.sessionUser.role === 'superadmin' && allAccounts && allAccounts.length) { %>
-          <div class="mb-3">
-            <label class="form-label">חשבון</label>
-            <select class="form-select" name="accountId">
-              <% allAccounts.forEach(function(acct) { %>
-                <option value="<%= acct._id %>" <%= locals.sessionUser && locals.sessionUser.activeAccountId && String(acct._id) === locals.sessionUser.activeAccountId ? 'selected' : '' %>><%= acct.name %></option>
-              <% }); %>
-            </select>
-          </div>
-          <% } %>
-          <button type="submit" class="btn btn-primary">יצירת אירוע</button>
-        </form>
-      </div>
-    </div>
-    <div class="col-lg-7">
-      <h2 class="h5 mb-3">כל האירועים</h2>
-      <div class="table-responsive">
-        <table class="table table-bordered bg-white">
-          <thead class="table-light">
-            <tr>
-              <th>שם</th>
-              <% if (locals.sessionUser && locals.sessionUser.role === 'superadmin') { %><th>חשבון</th><% } %>
-              <th>פעיל</th>
-              <th>קישור לטופס</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <% events.forEach(function(ev) { %>
-              <tr>
-                <td><%= ev.name %></td>
-                <% if (locals.sessionUser && locals.sessionUser.role === 'superadmin') { %><td><%= ev.accountId && ev.accountId.name ? ev.accountId.name : '' %></td><% } %>
-                <td><%= ev.isActive ? 'כן' : 'לא' %></td>
-                <td>
-                  <% var regUrl = (typeof baseUrl !== 'undefined' ? baseUrl : '') + '/register/' + encodeURIComponent(ev.slug || ''); %>
-                  <a href="<%= regUrl %>" target="_blank" rel="noopener" class="event-public-link d-inline-block text-break"><%= regUrl %></a>
-                </td>
-                <td class="text-nowrap">
-                  <a href="/admin/events/<%= ev._id %>/edit" class="btn btn-sm btn-outline-primary">עריכה</a>
-                  <a href="/admin/events/<%= ev._id %>/registrations" class="btn btn-sm btn-outline-success">נרשמים</a>
-                  <form method="post" action="/admin/events/<%= ev._id %>/delete" class="d-inline" onsubmit="return confirm('למחוק את האירוע וכל ההרשמות?');">
-                    <button type="submit" class="btn btn-sm btn-outline-danger">מחק</button>
-                  </form>
-                </td>
-              </tr>
-            <% }); %>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+  <div class="page-heading"><div><h1>אירועים</h1><p class="text-muted mb-0">כל הפעילות במקום אחד. בחרו אירוע כדי לנהל את העמוד, ההרשמות והכניסה.</p></div><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newEventModal">+ אירוע חדש</button></div>
+  <% if (formError) { %><div class="alert alert-danger"><%= formError %></div><% } %>
+  <section data-filter-table>
+    <div class="toolbar"><input type="search" class="form-control" data-search placeholder="חיפוש לפי שם האירוע" aria-label="חיפוש אירוע"><select class="form-select" data-filter aria-label="סינון אירועים"><option value="active">כל האירועים</option><option value="upcoming">אירועים קרובים</option><option value="draft">טיוטות</option><option value="past">אירועים שהסתיימו</option><option value="archived">ארכיון</option></select><span class="list-count" data-count></span></div>
+    <div class="admin-table-wrap table-responsive"><table class="table"><thead><tr><th>אירוע</th><th>מועד</th><th>מצב</th><th>הרשמות</th><th>משתתפים</th><th>פעולות</th></tr></thead><tbody>
+    <% events.forEach(ev => { const state=eventState(ev); const count=stats[String(ev._id)] || {}; const signup=registrationState(ev); %>
+      <tr data-search-text="<%= ev.name %>" data-status="<%= state.key + (ev.archivedAt ? '' : ' active') %>"><td><a class="event-name" href="/admin/events/<%= ev._id %>"><%= ev.name %></a><span class="table-subtext"><%= ev.accountId?.name || '' %></span></td><td class="text-nowrap"><%= ev.date ? formatDateTimeIsrael(ev.date) : 'טרם נקבע' %></td><td><span class="status-pill <%= state.tone %>"><%= state.label %></span><div class="table-subtext mt-1"><%= signup.label %></div></td><td dir="ltr" style="text-align:right"><strong><%= count.registrations || 0 %></strong><% if(ev.signupLimit != null && ev.signupLimitCountMode === 'families'){ %><span class="table-subtext"> / <%= ev.signupLimit %></span><% } %></td><td dir="ltr" style="text-align:right"><%= count.participants || 0 %><% if(ev.signupLimit != null && ev.signupLimitCountMode === 'participants'){ %><span class="table-subtext"> / <%= ev.signupLimit %></span><% } %></td><td><div class="table-actions"><a class="btn btn-sm btn-outline-primary" href="/admin/events/<%= ev._id %>">ניהול האירוע</a><div class="dropdown"><button class="btn btn-sm btn-light" data-bs-toggle="dropdown" aria-label="פעולות נוספות">⋯</button><ul class="dropdown-menu"><li><a class="dropdown-item" href="/register/<%= encodeURIComponent(ev.slug) %>" target="_blank" rel="noopener">פתיחת העמוד</a></li><li><form action="/admin/events/<%= ev._id %>/duplicate" method="post"><button class="dropdown-item">שכפול אירוע</button></form></li><li><form action="/admin/events/<%= ev._id %>/archive" method="post"><input type="hidden" name="restore" value="<%= ev.archivedAt ? '1' : '0' %>"><button class="dropdown-item"><%= ev.archivedAt ? 'שחזור מהארכיון' : 'העברה לארכיון' %></button></form></li></ul></div></div></td></tr>
+    <% }); %>
+    <% if(!events.length){ %><tr><td colspan="6"><div class="empty-state"><h2>האירוע הראשון שלכם מתחיל כאן</h2><p>צרו אירוע והמשיכו להגדרת העמוד וטופס ההרשמה.</p></div></td></tr><% } %>
+    </tbody></table></div>
+  </section>
+  <div class="modal fade" id="newEventModal" tabindex="-1" aria-labelledby="newEventTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form method="post" action="/admin/events/create"><div class="modal-header"><h2 class="modal-title h5" id="newEventTitle">יצירת אירוע</h2><button type="button" class="btn-close ms-0 me-auto" data-bs-dismiss="modal" aria-label="סגירה"></button></div><div class="modal-body p-4"><p class="section-help">מתחילים מהפרטים הבסיסיים. האירוע יישמר כטיוטה עד שתפרסמו אותו.</p><div class="mb-3"><label class="form-label" for="new-event-name">שם האירוע *</label><input class="form-control" id="new-event-name" name="name" maxlength="200" required></div><div class="mb-3"><label class="form-label" for="new-event-date">מועד האירוע</label><input class="form-control" type="datetime-local" id="new-event-date" name="date"></div><div class="mb-3"><label class="form-label" for="new-registration-type">אופן ההרשמה</label><select class="form-select" id="new-registration-type" name="registrationType"><option value="family">הורה וילדים</option><option value="individual">הרשמה אישית</option><option value="group">נרשם ומשתתפים נוספים</option></select><input type="hidden" name="hasChildrenPresent" value="1"><input type="hidden" name="hasChildren" id="new-has-children" value="on"></div><% if(locals.sessionUser?.role === 'superadmin'){ %><div class="mb-3"><label class="form-label" for="new-event-account">ארגון</label><select class="form-select" name="accountId" id="new-event-account"><% allAccounts.forEach(a => { %><option value="<%= a._id %>" <%= String(a._id)===locals.sessionUser.activeAccountId?'selected':'' %>><%= a.name %></option><% }); %></select></div><% } %></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">ביטול</button><button class="btn btn-primary">יצירה והמשך לעריכה</button></div></form></div></div></div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/tinymce@7/tinymce.min.js" crossorigin="anonymous"></script>
-<script src="/js/tinymce-event.js"></script>
-<script>
-(function () {
-  var hc = document.getElementById('hasChildrenNew');
-  var mode = document.getElementById('signupLimitCountModeNew');
-  if (!hc || !mode) return;
-  function sync() {
-    var enabled = hc.checked;
-    Array.from(mode.options).forEach(function (opt) {
-      if (opt.dataset.needsChildren === 'true') {
-        opt.hidden = !enabled;
-        opt.disabled = !enabled;
-      }
-    });
-    if (!enabled && mode.selectedOptions[0] && mode.selectedOptions[0].dataset.needsChildren === 'true') {
-      mode.value = 'families';
-    }
-  }
-  hc.addEventListener('change', sync);
-  sync();
-})();
-</script>
+<script>document.getElementById('new-registration-type').addEventListener('change', function(){document.getElementById('new-has-children').value=this.value==='family'?'on':'';});</script>
 <%- include('../partials/footer') %>

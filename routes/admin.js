@@ -18,7 +18,13 @@ const {
 } = require('../lib/formFields');
 const { escapeForTextarea } = require('../lib/htmlSanitize');
 const { toDatetimeLocalInputValue, parseDatetimeLocalInput } = require('../lib/datetimeLocal');
-const { buildGateUrl, generateToken } = require('../lib/tickets');
+const { buildGateUrl, generateToken, assignTicketToken, buildTicketUrl, ensureEventCheckInToken } = require('../lib/tickets');
+const { normalizePhone, sendTicket } = require('../lib/wasender');
+const { countSignupUsage } = require('../lib/signupLimits');
+const { additionalParticipants, participantCounts, totalsForRegistrations, deliveryState, activeRegistrationFilter } = require('../lib/participants');
+const { eventState, registrationState, limitLabel } = require('../lib/eventStatus');
+const { adminLocals: sharedAdminLocals, accountFilter: sharedAccountFilter } = require('../lib/adminContext');
+const MessageCampaign = require('../models/MessageCampaign');
 
 const router = express.Router();
 
@@ -73,9 +79,6 @@ function parseSignupFields(body) {
   let signupLimitCountMode = 'families';
   if (body.signupLimitCountMode === 'participants') signupLimitCountMode = 'participants';
   else if (body.signupLimitCountMode === 'children') signupLimitCountMode = 'children';
-  if (!hasChildren && signupLimitCountMode !== 'families') {
-    signupLimitCountMode = 'families';
-  }
   const signupCloseAt = parseDatetimeLocalInput(body.signupCloseAt || '');
   const signupPhoneUnique = body.signupPhoneUnique === 'on' || body.signupPhoneUnique === 'true';
   const capPresent = body.ticketCapIncludesRegistrantPresent === '1';
@@ -89,6 +92,8 @@ function parseSignupFields(body) {
     signupPhoneUnique,
     hasChildren,
     ticketCapIncludesRegistrant,
+    signupPaused: body.signupPaused === 'on',
+    signupOpenAt: parseDatetimeLocalInput(body.signupOpenAt || ''),
   };
 }
 
@@ -128,9 +133,12 @@ function stableS3ImageUrl(key) {
 async function ensureFormConfig(eventId, { hasChildren = true } = {}) {
   let cfg = await FormConfig.findOne({ eventId });
   if (!cfg) {
+    const owner = await Event.findById(eventId).select('accountId').lean();
+    const account = owner ? await Account.findById(owner.accountId).lean() : null;
     return FormConfig.create({
       eventId,
-      colors: {},
+      colors: account?.brandColor ? { primary: account.brandColor, button: account.brandColor } : {},
+      organizerLogoUrl: account?.logoUrl || '',
       fields: defaultFields({ hasChildren }),
     });
   }
@@ -246,6 +254,10 @@ router.get('/select-account', requireLogin, async (req, res) => {
 
 router.post('/set-active-account', requireLogin, async (req, res) => {
   const accountId = (req.body.accountId || '').trim();
+  if (req.session.role === 'superadmin' && accountId === 'all') {
+    delete req.session.activeAccountId; delete req.session.activeAccountName;
+    return res.redirect('/admin');
+  }
   if (!accountId) return res.redirect('/admin/select-account');
 
   if (req.session.role !== 'superadmin') {
@@ -277,8 +289,7 @@ router.post('/logout', requireLogin, (req, res) => {
 
 /** Build a Mongoose filter that restricts to the active account for regular users. */
 function accountFilter(session) {
-  if (session.role === 'superadmin') return {};
-  return { accountId: session.activeAccountId };
+  return sharedAccountFilter(session);
 }
 
 /** Load event only if the user has access (owns it or is superadmin). */
@@ -292,19 +303,7 @@ async function loadEventScoped(eventId, session) {
 
 /** Session locals injected into all admin renders for navbar/account switcher. */
 async function adminLocals(req) {
-  const locals = {
-    sessionUser: {
-      displayName: req.session.displayName || '',
-      role: req.session.role,
-      activeAccountId: req.session.activeAccountId || null,
-      activeAccountName: req.session.activeAccountName || null,
-    },
-    memberships: [],
-  };
-  if (req.session.role !== 'superadmin') {
-    locals.memberships = await AccountMembership.find({ userId: req.session.userId }).populate('accountId').lean();
-  }
-  return locals;
+  return sharedAdminLocals(req);
 }
 
 // ---------------------------------------------------------------------------
@@ -327,14 +326,16 @@ router.post('/upload-image', requireLogin, upload.single('image'), async (req, r
 // Dashboard
 // ---------------------------------------------------------------------------
 
+router.get('/settings', requireSuperAdmin, async (req, res) => res.render('admin/settings', { title: 'הגדרות המערכת', ...await adminLocals(req) }));
+
 router.get('/', requireAccountContext, async (req, res) => {
   try {
     const filter = accountFilter(req.session);
     const events = await Event.find(filter).sort({ createdAt: -1 }).populate('accountId').lean();
-    const counts = await Registration.aggregate([{ $group: { _id: '$eventId', n: { $sum: 1 } } }]);
-    const countMap = Object.fromEntries(counts.map((c) => [String(c._id), c.n]));
+    const registrations = await Registration.find({ eventId: { $in: events.map(e => e._id) } }).select('eventId participants children status ticketCheckedInAt ticketCheckInAdults ticketCheckInChildren ticketWhatsAppError ticketWhatsAppSentAt').lean();
+    const stats = Object.fromEntries(events.map(e => [String(e._id), totalsForRegistrations(registrations.filter(r => String(r.eventId) === String(e._id)), e)]));
     const al = await adminLocals(req);
-    res.render('admin/dashboard', { title: 'לוח בקרה', events, countMap, ...al });
+    res.render('admin/dashboard', { title: 'לוח בקרה', events, stats, ...al });
   } catch (err) {
     console.error(err);
     res.status(500).render('error', { title: 'שגיאה', message: 'לא ניתן לטעון נתונים' });
@@ -348,12 +349,15 @@ router.get('/', requireAccountContext, async (req, res) => {
 async function renderEventsListPage(req, res, opts = {}) {
   const filter = accountFilter(req.session);
   const events = await Event.find(filter).sort({ date: -1, createdAt: -1 }).populate('accountId').lean();
+  const registrations = await Registration.find({ eventId: { $in: events.map(e => e._id) } }).select('eventId participants children status ticketCheckedInAt ticketWhatsAppError ticketWhatsAppSentAt').lean();
+  const stats = Object.fromEntries(events.map(e => [String(e._id), totalsForRegistrations(registrations.filter(r => String(r.eventId) === String(e._id)), e)]));
   const baseUrl = `${req.protocol}://${req.get('host')}`;
   const al = await adminLocals(req);
   const allAccounts = req.session.role === 'superadmin' ? await Account.find().sort({ name: 1 }).lean() : [];
   return res.render('admin/events', {
     title: 'ניהול אירועים',
     events,
+    stats,
     formError: opts.formError || null,
     baseUrl,
     allAccounts,
@@ -377,9 +381,13 @@ async function renderEventEditPage(req, res, opts = {}) {
   const baseUrl = `${req.protocol}://${req.get('host')}`;
   const al = await adminLocals(req);
   const gateUrl = editObj.ticketsEnabled && editObj.checkInToken ? buildGateUrl(req, editObj.checkInToken) : '';
+  const registrations = await Registration.find({ eventId: editObj._id }).select('participants children status ticketCheckedInAt ticketCheckInAdults ticketCheckInChildren ticketWhatsAppError ticketWhatsAppSentAt').lean();
+  const stats = totalsForRegistrations(registrations, editObj);
+  const tab = ['overview', 'page', 'registration', 'tickets'].includes(req.query.tab) ? req.query.tab : 'page';
   return res.render('admin/event-edit', {
     title: `עריכה — ${editObj.name}`,
     editEvent: editObj,
+    event: editObj, activeTab: tab, stats, saved: req.query.saved === '1',
     editDescriptionHtml,
     formError: opts.formError || null,
     formBuilderError: opts.formBuilderError || null,
@@ -388,6 +396,7 @@ async function renderEventEditPage(req, res, opts = {}) {
     builderConfigRaw,
     eventDateInput: toDatetimeLocalInputValue(editObj.date),
     signupCloseAtInput: toDatetimeLocalInputValue(editObj.signupCloseAt),
+    signupOpenAtInput: toDatetimeLocalInputValue(editObj.signupOpenAt),
     gateUrl,
     ...al,
   });
@@ -414,6 +423,85 @@ router.get('/events/:id/edit', requireAccountContext, async (req, res) => {
   }
 });
 
+router.get('/events/:id', requireAccountContext, async (req, res) => {
+  return res.redirect(`/admin/events/${req.params.id}/edit?tab=overview`);
+});
+
+router.get('/events/:id/preview', requireAccountContext, async (req, res) => {
+  const event = await loadEventScoped(req.params.id, req.session);
+  if (!event) return res.status(404).send('Event not found');
+  return require('./public').renderRegistrationForm(res, 200, { event: event.toObject(), preview: true });
+});
+
+router.post('/events/:id/page', requireAccountContext, async (req, res) => {
+  const event = await loadEventScoped(req.params.id, req.session);
+  if (!event) return res.status(404).send('Event not found');
+  if (!String(req.body.name || '').trim()) return res.status(400).render('error', { title: 'שם אירוע חסר', message: 'יש למלא שם לאירוע.' });
+  event.name = String(req.body.name).trim();
+  event.description = String(req.body.description || '').trim();
+  event.date = parseDatetimeLocalInput(req.body.date || '');
+  if (req.body.isActive === 'on' && !event.date) return res.status(400).render('error', { title: 'יש להשלים מועד', message: 'כדי לפרסם את האירוע יש לקבוע תאריך ושעה. ניתן לשמור ללא פרסום כטיוטה.' });
+  event.location = String(req.body.location || '').trim();
+  event.isActive = req.body.isActive === 'on';
+  event.slug = await uniqueSlug(slugify(req.body.slug || event.name), event._id);
+  await event.save();
+  const cfg = await ensureFormConfig(event._id, { hasChildren: event.hasChildren !== false });
+  for (const [input, key] of [['logoKey', 'logoUrl'], ['organizerLogoKey', 'organizerLogoUrl'], ['backgroundImageKey', 'backgroundImage']]) {
+    if (Object.prototype.hasOwnProperty.call(req.body, input)) cfg[key] = String(req.body[input] || '').trim();
+  }
+  cfg.logoMaxHeight = parseLogoMaxHeight(req.body.logoMaxHeight);
+  cfg.colors = { primary: req.body.colorPrimary || '#0d6efd', background: req.body.colorBackground || '#f8f9fa', text: req.body.colorText || '#212529', button: req.body.colorButton || '#0d6efd' };
+  await cfg.save();
+  res.redirect(`/admin/events/${event._id}/edit?tab=page&saved=1`);
+});
+
+router.post('/events/:id/registration-settings', requireAccountContext, async (req, res) => {
+  const event = await loadEventScoped(req.params.id, req.session);
+  if (!event) return res.status(404).send('Event not found');
+  const signup = parseSignupFields(req.body);
+  if (signup.signupOpenAt && signup.signupCloseAt && signup.signupOpenAt >= signup.signupCloseAt) return res.status(400).render('error', { title: 'מועדים לא תקינים', message: 'מועד פתיחת ההרשמה חייב להיות לפני מועד הסגירה.' });
+  let fields;
+  try { fields = JSON.parse(req.body.fieldsJson); if (!Array.isArray(fields)) throw new Error(); }
+  catch { return res.status(400).render('error', { title: 'הטופס לא נשמר', message: 'מבנה שדות הטופס לא תקין. יש לרענן ולנסות שוב.' }); }
+  Object.assign(event, signup);
+  const cfg = await ensureFormConfig(event._id, { hasChildren: event.hasChildren !== false });
+  cfg.fields = sanitizeFieldsFromBuilder(fields, { hasChildren: event.hasChildren !== false });
+  cfg.customFields = [];
+  await cfg.save();
+  await event.save();
+  res.redirect(`/admin/events/${event._id}/edit?tab=registration&saved=1`);
+});
+
+router.post('/events/:id/ticket-settings', requireAccountContext, async (req, res) => {
+  const event = await loadEventScoped(req.params.id, req.session);
+  if (!event) return res.status(404).send('Event not found');
+  event.ticketsEnabled = req.body.ticketsEnabled === 'on';
+  event.ticketsGateAllowCountEdit = event.ticketsEnabled && req.body.ticketsGateAllowCountEdit === 'on';
+  if (event.ticketsEnabled && !event.checkInToken) event.checkInToken = generateToken(32);
+  await event.save();
+  res.redirect(`/admin/events/${event._id}/edit?tab=tickets&saved=1`);
+});
+
+router.post('/events/:id/archive', requireAccountContext, async (req, res) => {
+  const event = await loadEventScoped(req.params.id, req.session);
+  if (!event) return res.status(404).send('Event not found');
+  event.archivedAt = req.body.restore === '1' ? null : new Date();
+  await event.save();
+  if (event.archivedAt) await MessageCampaign.updateMany({ eventId: event._id, status: { $in: ['queued', 'running', 'paused'] } }, { $set: { status: 'cancelled', completedAt: new Date() } });
+  res.redirect('/admin/events');
+});
+
+router.post('/events/:id/duplicate', requireAccountContext, async (req, res) => {
+  const source = await loadEventScoped(req.params.id, req.session);
+  if (!source) return res.status(404).send('Event not found');
+  const { _id, createdAt, updatedAt, checkInToken, __v, ...data } = source.toObject();
+  const copy = await Event.create({ ...data, name: `${source.name} (עותק)`, slug: await uniqueSlug(`${source.slug}-copy`), date: null, isActive: false, archivedAt: null, signupPaused: false, signupOpenAt: null, signupCloseAt: null, checkInToken: source.ticketsEnabled ? generateToken(32) : undefined });
+  const config = await FormConfig.findOne({ eventId: source._id }).lean();
+  if (config) { const { _id: configId, eventId, __v: version, createdAt: oldCreated, updatedAt: oldUpdated, ...design } = config; await FormConfig.create({ ...design, eventId: copy._id }); }
+  else await ensureFormConfig(copy._id, { hasChildren: copy.hasChildren !== false });
+  res.redirect(`/admin/events/${copy._id}/edit?tab=page`);
+});
+
 router.post('/events/create', requireAccountContext, async (req, res) => {
   try {
     const name = (req.body.name || '').trim();
@@ -422,6 +510,7 @@ router.post('/events/create', requireAccountContext, async (req, res) => {
     const slugInput = (req.body.slug || '').trim();
     const isActive = req.body.isActive === 'on' || req.body.isActive === 'true';
     const signup = parseSignupFields(req.body);
+    if (['individual', 'group', 'family'].includes(req.body.registrationType)) signup.hasChildren = req.body.registrationType === 'family';
     const ticketsEnabled = req.body.ticketsEnabled === 'on' || req.body.ticketsEnabled === 'true';
     const ticketsGateAllowCountEdit =
       ticketsEnabled && (req.body.ticketsGateAllowCountEdit === 'on' || req.body.ticketsGateAllowCountEdit === 'true');
@@ -459,7 +548,12 @@ router.post('/events/create', requireAccountContext, async (req, res) => {
       ticketsGateAllowCountEdit,
       checkInToken: ticketsEnabled ? generateToken(32) : undefined,
     });
-    await ensureFormConfig(event._id, { hasChildren: signup.hasChildren });
+    const initialConfig = await ensureFormConfig(event._id, { hasChildren: signup.hasChildren });
+    if (req.body.registrationType === 'group') {
+      const fields = initialConfig.fields.map(f => f.toObject ? f.toObject() : f);
+      initialConfig.fields = sanitizeFieldsFromBuilder([...fields.filter(f => f.type !== 'checkbox'), { id: 'ch', type: 'children', label: 'משתתפים נוספים', childNameLabel: 'שם המשתתף/ת', collectAge: false, required: false }, ...fields.filter(f => f.type === 'checkbox')], { hasChildren: false });
+      await initialConfig.save();
+    }
     return res.redirect(`/admin/events/${event._id}/edit`);
   } catch (err) {
     console.error(err);
@@ -534,14 +628,9 @@ router.post('/events/:id/delete', requireAccountContext, async (req, res) => {
     const event = await loadEventScoped(req.params.id, req.session);
     if (!event) return res.status(404).render('error', { title: 'לא נמצא', message: 'אירוע לא קיים' });
 
-    const cfg = await FormConfig.findOne({ eventId: event._id });
-    if (cfg) {
-      await Promise.all([deleteFile(cfg.logoUrl), deleteFile(cfg.backgroundImage)]);
-      await cfg.deleteOne();
-    }
-
-    await Registration.deleteMany({ eventId: event._id });
-    await event.deleteOne();
+    event.archivedAt = new Date();
+    await event.save();
+    await MessageCampaign.updateMany({ eventId: event._id, status: { $in: ['queued', 'running', 'paused'] } }, { $set: { status: 'cancelled', completedAt: new Date() } });
     return res.redirect('/admin/events');
   } catch (err) {
     console.error(err);
@@ -554,7 +643,7 @@ router.post('/events/:id/delete', requireAccountContext, async (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.get('/events/:id/form-builder', requireAccountContext, async (req, res) => {
-  return res.redirect(302, `/admin/events/${req.params.id}/edit#form-design`);
+  return res.redirect(302, `/admin/events/${req.params.id}/edit?tab=registration`);
 });
 
 router.post('/events/:id/form-builder', requireAccountContext, async (req, res) => {
@@ -576,27 +665,23 @@ router.post('/events/:id/form-builder', requireAccountContext, async (req, res) 
     const bgKey = (req.body.backgroundImageKey || '').trim();
 
     if (logoKey && logoKey !== cfg.logoUrl) {
-      await deleteFile(cfg.logoUrl);
       cfg.logoUrl = logoKey;
     }
 
     if (bgKey && bgKey !== cfg.backgroundImage) {
-      await deleteFile(cfg.backgroundImage);
       cfg.backgroundImage = bgKey;
     }
 
     if (req.body.clearLogo === 'true') {
-      await deleteFile(cfg.logoUrl);
       cfg.logoUrl = '';
     }
 
     if (req.body.clearBackground === 'true') {
-      await deleteFile(cfg.backgroundImage);
       cfg.backgroundImage = '';
     }
 
     await cfg.save();
-    return res.redirect(302, `/admin/events/${event._id}/edit#form-design`);
+    return res.redirect(302, `/admin/events/${event._id}/edit?tab=registration&saved=1`);
   } catch (err) {
     console.error(err);
     res.status(500);
@@ -639,6 +724,8 @@ router.get('/events/:id/registrations', requireAccountContext, async (req, res) 
       peopleField,
       registrationCount: registrations.length,
       totalPeople,
+      stats: totalsForRegistrations(registrations, event),
+      activeTab: 'registrations',
       ...al,
     });
   } catch (err) {
@@ -656,12 +743,80 @@ router.post('/events/:eventId/registrations/:registrationId/delete', requireAcco
     const reg = await Registration.findOne({ _id: req.params.registrationId, eventId: event._id });
     if (!reg) return res.status(404).render('error', { title: 'לא נמצא', message: 'הרשמה לא נמצאה' });
 
-    await reg.deleteOne();
+    reg.status = 'cancelled'; reg.cancelledAt = new Date(); reg.updatedBy = req.session.userId;
+    await reg.save();
     return res.redirect(`/admin/events/${event._id}/registrations`);
   } catch (err) {
     console.error(err);
     res.status(500).render('error', { title: 'שגיאה', message: 'מחיקה נכשלה' });
   }
+});
+
+router.get('/events/:eventId/registrations/:registrationId', requireAccountContext, async (req, res, next) => {
+  if (req.params.registrationId === 'export.csv') return next();
+  const event = await loadEventScoped(req.params.eventId, req.session);
+  if (!event) return res.status(404).send('Event not found');
+  const registration = await Registration.findOne({ _id: req.params.registrationId, eventId: event._id }).lean();
+  if (!registration) return res.status(404).send('Registration not found');
+  const config = await FormConfig.findOne({ eventId: event._id }).lean();
+  res.render('admin/registration-detail', { title: 'פרטי הרשמה', event: event.toObject(), registration, activeTab: 'registrations', customFieldDefs: getCustomFieldDefs(getFieldsForRender(config, { hasChildren: event.hasChildren !== false })), saved: req.query.saved === '1', ticketSent: req.query.sent === '1', ...await adminLocals(req) });
+});
+
+router.post('/events/:eventId/registrations/:registrationId/update', requireAccountContext, async (req, res) => {
+  const event = await loadEventScoped(req.params.eventId, req.session);
+  if (!event) return res.status(404).send('Event not found');
+  const registration = await Registration.findOne({ _id: req.params.registrationId, eventId: event._id });
+  if (!registration) return res.status(404).send('Registration not found');
+  const phone = String(req.body.phone || '').trim(); const normalized = normalizePhone(phone);
+  if (event.signupPhoneUnique && normalized && registration.status !== 'cancelled' && await Registration.exists({ eventId: event._id, phoneNormalized: normalized, _id: { $ne: registration._id }, ...activeRegistrationFilter })) return res.status(400).render('error', { title: 'מספר הטלפון כבר רשום', message: 'קיימת הרשמה פעילה אחרת עם מספר טלפון זה.' });
+  const rows = req.body.participants == null ? [] : Array.isArray(req.body.participants) ? req.body.participants : Object.values(req.body.participants);
+  if (rows.length > 200) return res.status(400).send('Too many participants');
+  const participants = rows.filter(p => String(p.name || '').trim()).map(p => ({ name: String(p.name).trim().slice(0,120), age: p.age === '' || p.age == null ? null : Number(p.age), category: ['child','adult','general'].includes(p.category) ? p.category : 'general' }));
+  if (participants.some(p => p.age != null && (!Number.isFinite(p.age) || p.age < 0 || p.age > 120))) return res.status(400).render('error', { title: 'גיל אינו תקין', message: 'יש להזין גיל בטווח 0 עד 120, או להשאיר ריק.' });
+  if (registration.status !== 'cancelled' && event.signupLimit != null) {
+    const mode = event.signupLimitCountMode; const current = await countSignupUsage(event._id, mode);
+    const delta = mode === 'families' ? 0 : participants.length - additionalParticipants(registration, event).length;
+    if (delta > 0 && current + delta > event.signupLimit) return res.status(400).render('error', { title: 'חריגה מהמכסה', message: 'אין מספיק מקומות כדי להוסיף את המשתתפים להרשמה.' });
+  }
+  registration.parentFirstName = String(req.body.parentFirstName || '').trim().slice(0,120);
+  registration.parentLastName = String(req.body.parentLastName || '').trim().slice(0,120);
+  registration.phone = phone; registration.phoneNormalized = normalized;
+  registration.participants = participants;
+  registration.children = participants.map(p => ({ name: p.name, age: p.age ?? 0 }));
+  registration.updatedBy = req.session.userId;
+  await registration.save();
+  res.redirect(`/admin/events/${event._id}/registrations/${registration._id}?saved=1`);
+});
+
+router.post('/events/:eventId/registrations/:registrationId/restore', requireAccountContext, async (req, res) => {
+  const event = await loadEventScoped(req.params.eventId, req.session);
+  if (!event) return res.status(404).send('Event not found');
+  const registration = await Registration.findOne({ _id: req.params.registrationId, eventId: event._id });
+  if (!registration) return res.status(404).send('Registration not found');
+  if (registration.status === 'cancelled') {
+    if (event.signupPhoneUnique && registration.phoneNormalized && await Registration.exists({ eventId: event._id, phoneNormalized: registration.phoneNormalized, _id: { $ne: registration._id }, ...activeRegistrationFilter })) return res.status(400).render('error', { title: 'לא ניתן לשחזר', message: 'כבר קיימת הרשמה פעילה עם מספר טלפון זה.' });
+    const count = participantCounts(registration, event); const mode = event.signupLimitCountMode;
+    if (event.signupLimit != null && await countSignupUsage(event._id, mode) + (mode === 'participants' ? count.total : mode === 'children' ? count.additional : 1) > event.signupLimit) return res.status(400).render('error', { title: 'לא ניתן לשחזר', message: 'שחזור ההרשמה יחרוג מהמכסה.' });
+    registration.status = 'confirmed'; registration.cancelledAt = null; registration.updatedBy = req.session.userId;
+    await registration.save();
+  }
+  res.redirect(`/admin/events/${event._id}/registrations/${registration._id}?saved=1`);
+});
+
+router.post('/events/:eventId/registrations/:registrationId/send-ticket', requireAccountContext, async (req, res) => {
+  const event = await loadEventScoped(req.params.eventId, req.session);
+  if (!event) return res.status(404).send('Event not found');
+  const registration = await Registration.findOne({ _id: req.params.registrationId, eventId: event._id, ...activeRegistrationFilter });
+  if (!registration || !event.ticketsEnabled || event.archivedAt) return res.status(400).render('error', { title: 'הכרטיס אינו זמין', message: 'יש לוודא שההרשמה פעילה והכרטיסים מופעלים.' });
+  await ensureEventCheckInToken(event); await assignTicketToken(registration);
+  const ticketUrl = buildTicketUrl(req, registration.ticketToken);
+  try {
+    const result = await sendTicket({ event, registration, ticketUrl, qrImageUrl: `${ticketUrl}/qr.png` });
+    if (!result.sent) throw new Error(result.error || 'השליחה נכשלה');
+    registration.ticketWhatsAppSentAt = new Date(); registration.ticketWhatsAppError = '';
+    await registration.save();
+  } catch (error) { registration.ticketWhatsAppError = error.message; await registration.save(); return res.status(400).render('error', { title: 'השליחה נכשלה', message: error.message }); }
+  res.redirect(`/admin/events/${event._id}/registrations/${registration._id}?sent=1`);
 });
 
 function csvEscape(cell) {
@@ -676,7 +831,7 @@ router.get('/events/:id/registrations/export.csv', requireAccountContext, async 
     const event = eventDoc.toObject ? eventDoc.toObject() : eventDoc;
 
     const hasChildren = event.hasChildren !== false;
-    const registrations = await Registration.find({ eventId: event._id }).sort({ createdAt: -1 }).lean();
+    const registrations = await Registration.find({ eventId: event._id, ...activeRegistrationFilter }).sort({ createdAt: -1 }).lean();
     const formConfig = await FormConfig.findOne({ eventId: event._id }).lean();
     const allFields = getFieldsForRender(formConfig, { hasChildren });
     const customFieldDefs = getCustomFieldDefs(allFields);
@@ -684,7 +839,7 @@ router.get('/events/:id/registrations/export.csv', requireAccountContext, async 
     const peopleCollectsAge = peopleField ? peopleField.collectAge !== false : false;
     const peopleLabel = peopleField ? peopleField.label : '';
 
-    const baseHeaders = ['תאריך הרשמה', 'שם פרטי הורה', 'שם משפחה הורה', 'טלפון'];
+    const baseHeaders = ['תאריך הרשמה', 'שם פרטי', 'שם משפחה', 'טלפון', 'מספר משתתפים', 'שליחת כרטיס', 'כניסה'];
     if (peopleField) {
       baseHeaders.push(`מספר ${peopleLabel}`);
       baseHeaders.push(peopleCollectsAge ? `${peopleLabel} (שם וגיל)` : `${peopleLabel} (שמות)`);
@@ -692,12 +847,15 @@ router.get('/events/:id/registrations/export.csv', requireAccountContext, async 
     const customHeaders = customFieldDefs.map((f) => f.label);
 
     const rows = registrations.map((r) => {
-      const childrenArr = r.children || [];
+      const childrenArr = additionalParticipants(r, event);
       const base = [
         r.createdAt ? new Date(r.createdAt).toISOString() : '',
         r.parentFirstName,
         r.parentLastName,
         r.phone,
+        participantCounts(r, event).total,
+        deliveryState(r).label,
+        r.ticketCheckedInAt ? formatDateTimeIsrael(r.ticketCheckedInAt) : 'טרם נכנסו',
       ];
       if (peopleField) {
         const childrenStr = peopleCollectsAge
@@ -719,7 +877,7 @@ router.get('/events/:id/registrations/export.csv', requireAccountContext, async 
     const csv = '\uFEFF' + [headerLine, ...lines].join('\r\n');
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="registrations-${event.slug}.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="registrations-${event._id}.csv"; filename*=UTF-8''${encodeURIComponent(`registrations-${event.slug}.csv`)}`);
     return res.send(csv);
   } catch (err) {
     console.error(err);
