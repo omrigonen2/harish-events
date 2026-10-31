@@ -71,6 +71,18 @@ mongoose
     });
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server listening on port ${PORT}`);
+      // Optional one-time maintenance runs after listening and never blocks startup.
+      // Matching the original key makes restarts safe after a successful update.
+      if (process.env.EVENT_LOGO_OPTIMIZATION) {
+        Promise.resolve().then(() => {
+          const { optimizeEventLogo } = require('./lib/optimizeEventLogo');
+          return optimizeEventLogo(JSON.parse(process.env.EVENT_LOGO_OPTIMIZATION));
+        }).then((result) => {
+          console.log('Event logo optimization:', JSON.stringify(result));
+        }).catch((err) => {
+          console.error('Event logo optimization failed:', err.message);
+        });
+      }
     });
   })
   .catch((e) => {
